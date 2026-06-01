@@ -25,3 +25,8 @@ annotations_master.csv
 # .md Files for Coding Agent
 instruction.md
 new-feature.md
+
+# Compressed Files
+*.zip
+*.rar
+*.7z

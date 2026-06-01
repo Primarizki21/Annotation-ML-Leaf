@@ -1,4 +1,6 @@
-// State
+var PATCH_SIZE = 64;
+var _gridObserver = null;
+
 var state = {
     currentPatch: null,
     history: [],
@@ -77,7 +79,6 @@ function doSetup() {
     });
 }
 
-// Load current patch
 function loadCurrentPatch() {
     fetch('/api/patch/current')
         .then(function(res) { return res.json(); })
@@ -95,13 +96,11 @@ function loadCurrentPatch() {
         });
 }
 
-// Derive leaf stem from patch path
 function getLeafStem(patchPath) {
     var filename = patchPath.split('/').pop();
     return filename.replace(/__r\d+_c\d+\.\w+$/, '');
 }
 
-// Fetch leaf context and update state
 function fetchLeafContext(patch) {
     var stem = getLeafStem(patch.patch_path);
     var url = '/api/leaf-context/' + patch.split + '/' +
@@ -118,7 +117,6 @@ function fetchLeafContext(patch) {
         });
 }
 
-// Build center panel HTML
 function buildCenterPanelHTML(p) {
     var imgSrc = '/image/' + p.patch_path;
     var pct = ((p.index + 1) / p.total * 100).toFixed(1);
@@ -160,7 +158,6 @@ function buildCenterPanelHTML(p) {
     '<div class="patch-strip" id="patchStrip"></div>';
 }
 
-// Render current patch — three-panel layout
 function renderPatch() {
     if (!state.currentPatch) return;
     var p = state.currentPatch;
@@ -213,14 +210,12 @@ function renderPatch() {
     }
 }
 
-// Render left panel — full leaf image
 function renderLeftPanel(ctx) {
     var wrap = document.getElementById('leafImageWrap');
     if (!wrap) return;
     wrap.innerHTML = '<img src="' + escapeHtml(ctx.source_image_url) + '" alt="Full leaf" onerror="handleImageError(this)">';
 }
 
-// Render right panel — leaf with canvas grid overlay
 function renderRightPanel(ctx) {
     var wrap = document.getElementById('gridWrap');
     var statsEl = document.getElementById('leafStats');
@@ -252,8 +247,8 @@ function renderRightPanel(ctx) {
         // Scale from actual image pixels to displayed size
         var scaleX = w / ctx.img_width;
         var scaleY = h / ctx.img_height;
-        var cellW = 64 * scaleX;
-        var cellH = 64 * scaleY;
+        var cellW = PATCH_SIZE * scaleX;
+        var cellH = PATCH_SIZE * scaleY;
 
         ctx.patches.forEach(function(patch) {
             var x = patch.col * cellW;
@@ -303,9 +298,10 @@ function renderRightPanel(ctx) {
         img.addEventListener('load', drawGrid);
     }
 
-    // Redraw on resize
-    var observer = new ResizeObserver(function() { drawGrid(); });
-    observer.observe(wrap);
+    // Redraw on resize — disconnect previous observer to avoid leaks
+    if (_gridObserver) _gridObserver.disconnect();
+    _gridObserver = new ResizeObserver(function() { drawGrid(); });
+    _gridObserver.observe(wrap);
 
     // Click handler — navigate to clicked patch
     canvas.addEventListener('click', function(e) {
@@ -315,8 +311,8 @@ function renderRightPanel(ctx) {
         var clickX = (e.clientX - rect.left) * canvasScaleX;
         var clickY = (e.clientY - rect.top) * canvasScaleY;
 
-        var cellW = 64 * (canvas.width / ctx.img_width);
-        var cellH = 64 * (canvas.height / ctx.img_height);
+        var cellW = PATCH_SIZE * (canvas.width / ctx.img_width);
+        var cellH = PATCH_SIZE * (canvas.height / ctx.img_height);
         var clickedCol = Math.floor(clickX / cellW);
         var clickedRow = Math.floor(clickY / cellH);
 
@@ -334,7 +330,6 @@ function renderRightPanel(ctx) {
     });
 }
 
-// Render patch strip — all patches from current leaf
 function renderPatchStrip(ctx) {
     var strip = document.getElementById('patchStrip');
     if (!strip) return;
@@ -361,13 +356,11 @@ function renderPatchStrip(ctx) {
     }
 }
 
-// Jump to a specific patch via grid/strip click
 function jumpToPatch(patchPath) {
     if (state.loading) return;
     state.loading = true;
 
-    fetch('/api/jump-to-patch?annotator=' + encodeURIComponent(state.annotatorName) +
-          '&patch_path=' + encodeURIComponent(patchPath))
+    fetch('/api/jump-to-patch?patch_path=' + encodeURIComponent(patchPath))
         .then(function(res) {
             if (!res.ok) throw new Error('Jump failed');
             return res.json();
@@ -383,7 +376,6 @@ function jumpToPatch(patchPath) {
         });
 }
 
-// Handle missing image
 function handleImageError(img) {
     img.src = 'data:image/svg+xml,' + encodeURIComponent(
         '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">' +
@@ -394,14 +386,12 @@ function handleImageError(img) {
     );
 }
 
-// Escape HTML to prevent XSS
 function escapeHtml(text) {
     var div = document.createElement('div');
     div.appendChild(document.createTextNode(text));
     return div.innerHTML;
 }
 
-// Update cached leaf context after an annotation action
 function updateCachedLeafLabel(patchPath, label) {
     if (!state.leafContext) return;
     var ctx = state.leafContext;
@@ -414,7 +404,6 @@ function updateCachedLeafLabel(patchPath, label) {
     }
 }
 
-// Annotate
 function annotate(label) {
     if (!state.currentPatch || state.loading) return;
     state.loading = true;
@@ -456,7 +445,6 @@ function annotate(label) {
     });
 }
 
-// Skip
 function skipPatch() {
     if (!state.currentPatch || state.loading) return;
     state.loading = true;
@@ -488,7 +476,6 @@ function skipPatch() {
     });
 }
 
-// Undo
 function undo() {
     if (state.history.length === 0 || state.loading) return;
     state.loading = true;
