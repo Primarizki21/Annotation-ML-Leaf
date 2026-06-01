@@ -1,0 +1,26 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Dataset
+dataset_patches/
+
+# Generated files from Python scripts
+annotator_config.json
+assignments.json
+annotations/
+annotations_master.csv
+
+# OpenClaude
+.openclaude/
+
+# .md Files for Coding Agent
+instruction.md
+new-feature.md

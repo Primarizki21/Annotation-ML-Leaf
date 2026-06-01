@@ -1,0 +1,608 @@
+"""
+main.py - FastAPI Image Patch Annotation App
+
+A local web application for image patch annotation using FastAPI.
+Used by annotators to label plant leaf patches as "healthy" or "unhealthy".
+"""
+
+import csv
+import json
+import shutil
+import sys
+import traceback
+from datetime import datetime, timezone
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, Response
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
+from starlette.middleware.base import BaseHTTPMiddleware
+
+app = FastAPI(title="Patch Annotation App")
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
+
+class ExceptionLoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        try:
+            response = await call_next(request)
+            return response
+        except Exception as exc:
+            # Print full traceback to stderr (shows in uvicorn log)
+            print("\n" + "=" * 60, file=sys.stderr)
+            print(f"ERROR: {request.method} {request.url.path}", file=sys.stderr)
+            print("=" * 60, file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
+            print("=" * 60 + "\n", file=sys.stderr)
+            # Return error page with traceback
+            tb = traceback.format_exc()
+            return PlainTextResponse(
+                f"Internal Server Error\n\n{tb}",
+                status_code=500,
+            )
+
+
+app.add_middleware(ExceptionLoggingMiddleware)
+
+# Paths
+BASE_DIR = Path(__file__).parent
+DATASET_DIR = BASE_DIR / "dataset_patches"
+ANNOTATIONS_DIR = BASE_DIR / "annotations"
+CONFIG_PATH = BASE_DIR / "annotator_config.json"
+ASSIGNMENTS_PATH = BASE_DIR / "assignments.json"
+
+# Ensure annotations directory exists
+ANNOTATIONS_DIR.mkdir(exist_ok=True)
+
+# In-memory session store
+sessions: dict[str, dict] = {}
+
+# Placeholder SVG for missing images
+PLACEHOLDER_SVG = b'''<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
+  <rect width="64" height="64" fill="#333"/>
+  <text x="32" y="30" text-anchor="middle" fill="#888" font-size="9">Missing</text>
+  <text x="32" y="42" text-anchor="middle" fill="#888" font-size="9">Image</text>
+</svg>'''
+
+BACKUP_INTERVAL = 100
+MAX_HISTORY = 10
+
+
+# --- Pydantic models ---
+
+class SetupRequest(BaseModel):
+    name: str
+
+
+class AnnotateRequest(BaseModel):
+    patch_path: str
+    label: str  # "healthy" or "unhealthy"
+
+
+class SkipRequest(BaseModel):
+    patch_path: str
+
+
+# --- Helper functions ---
+
+def load_assignments() -> dict:
+    if not ASSIGNMENTS_PATH.exists():
+        raise HTTPException(400, "assignments.json not found. Run assignments_generator.py first.")
+    with open(ASSIGNMENTS_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def load_config() -> dict | None:
+    if CONFIG_PATH.exists():
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return None
+
+
+def save_config(name: str):
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump({"name": name}, f, indent=2)
+
+
+def init_session(name: str) -> dict:
+    """Initialize or restore a session for the given annotator."""
+    assignments = load_assignments()
+    if name not in assignments:
+        raise HTTPException(400, f"Annotator '{name}' not found in assignments.json")
+
+    patch_list = []
+    for folder_rel in assignments[name]:
+        folder_path = DATASET_DIR / folder_rel
+        parts = folder_rel.split("/")
+        split = parts[0]  # "train" or "test"
+        class_name = parts[-1]  # last segment
+
+        if folder_path.exists():
+            for img_file in sorted(folder_path.iterdir()):
+                if img_file.suffix.lower() in (".jpg", ".jpeg", ".png"):
+                    patch_list.append({
+                        "path": f"{folder_rel}/{img_file.name}",
+                        "class_name": class_name,
+                        "split": split,
+                    })
+
+    # Load already-annotated set for resume
+    csv_path = ANNOTATIONS_DIR / f"annotations_{name}.csv"
+    annotated_set = set()
+    skipped_set = set()
+    if csv_path.exists():
+        try:
+            with open(csv_path, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row.get("is_skipped") == "True":
+                        skipped_set.add(row["patch_path"])
+                    else:
+                        annotated_set.add(row["patch_path"])
+        except Exception:
+            pass  # Corrupted CSV, start fresh
+
+    # Filter out annotated (but keep skipped for re-annotation)
+    remaining = [p for p in patch_list if p["path"] not in annotated_set]
+
+    session = {
+        "patch_list": remaining,
+        "current_index": 0,
+        "history": [],
+        "annotated_set": annotated_set,
+        "skipped_set": skipped_set,
+        "csv_path": csv_path,
+        "total_original": len(patch_list),
+        "annotated_count": len(annotated_set),
+        "annotation_counter": 0,  # For backup interval
+    }
+    sessions[name] = session
+    return session
+
+
+def append_csv(csv_path: Path, row: dict):
+    """Append a single row to the CSV file."""
+    file_exists = csv_path.exists()
+    with open(csv_path, "a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=[
+            "patch_path", "class_name", "split", "label",
+            "annotator", "timestamp", "is_skipped"
+        ])
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(row)
+
+
+def rewrite_csv_without_last(csv_path: Path):
+    """Remove the last row from CSV (for undo)."""
+    if not csv_path.exists():
+        return
+    with open(csv_path, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+
+    if not rows:
+        return
+
+    rows.pop()  # Remove last
+
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=[
+            "patch_path", "class_name", "split", "label",
+            "annotator", "timestamp", "is_skipped"
+        ])
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def backup_csv(csv_path: Path):
+    """Create a backup of the CSV file."""
+    if csv_path.exists():
+        backup_path = csv_path.with_suffix(".csv.bak")
+        shutil.copy2(csv_path, backup_path)
+
+
+# --- Page routes ---
+
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    config = load_config()
+    annotator_name = config["name"] if config else ""
+    return templates.TemplateResponse(request=request, name="index.html", context={
+        "annotator_name": annotator_name,
+    })
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    return templates.TemplateResponse(request=request, name="dashboard.html")
+
+
+# --- API routes ---
+
+@app.get("/api/status")
+async def api_status():
+    config = load_config()
+    if not config:
+        return {"setup": False, "name": None}
+    name = config["name"]
+    # Check if session exists, if not initialize
+    if name not in sessions:
+        try:
+            init_session(name)
+        except Exception:
+            return {"setup": False, "name": None}
+    session = sessions[name]
+    return {
+        "setup": True,
+        "name": name,
+        "total": session["total_original"],
+        "annotated": session["annotated_count"],
+    }
+
+
+@app.post("/api/setup")
+async def api_setup(req: SetupRequest):
+    name = req.name.strip()
+    if not name:
+        raise HTTPException(400, "Name cannot be empty")
+
+    # Validate against assignments
+    assignments = load_assignments()
+    if name not in assignments:
+        valid_names = list(assignments.keys())
+        raise HTTPException(400, f"Annotator '{name}' not found. Valid names: {valid_names}")
+
+    save_config(name)
+    session = init_session(name)
+    return {
+        "setup": True,
+        "name": name,
+        "total": session["total_original"],
+        "annotated": session["annotated_count"],
+    }
+
+
+@app.get("/api/patch/current")
+async def api_patch_current():
+    config = load_config()
+    if not config:
+        raise HTTPException(400, "Setup not complete")
+    name = config["name"]
+    if name not in sessions:
+        init_session(name)
+    session = sessions[name]
+
+    if session["current_index"] >= len(session["patch_list"]):
+        return {"done": True, "message": "All patches annotated!"}
+
+    patch = session["patch_list"][session["current_index"]]
+    return {
+        "done": False,
+        "patch_path": patch["path"],
+        "class_name": patch["class_name"],
+        "split": patch["split"],
+        "index": session["current_index"],
+        "total": len(session["patch_list"]),
+        "annotated_count": session["annotated_count"],
+    }
+
+
+@app.post("/api/annotate")
+async def api_annotate(req: AnnotateRequest):
+    config = load_config()
+    if not config:
+        raise HTTPException(400, "Setup not complete")
+    name = config["name"]
+    session = sessions.get(name)
+    if not session:
+        raise HTTPException(400, "Session not found")
+
+    if session["current_index"] >= len(session["patch_list"]):
+        raise HTTPException(400, "No more patches to annotate")
+
+    patch = session["patch_list"][session["current_index"]]
+    if patch["path"] != req.patch_path:
+        raise HTTPException(400, "Patch path mismatch")
+
+    # Save annotation
+    now = datetime.now(timezone.utc).isoformat()
+    row = {
+        "patch_path": patch["path"],
+        "class_name": patch["class_name"],
+        "split": patch["split"],
+        "label": req.label,
+        "annotator": name,
+        "timestamp": now,
+        "is_skipped": "False",
+    }
+    append_csv(session["csv_path"], row)
+
+    # Update history for undo
+    session["history"].append({
+        "patch": patch,
+        "index": session["current_index"],
+        "row": row,
+    })
+    if len(session["history"]) > MAX_HISTORY:
+        session["history"].pop(0)
+
+    # Update state
+    session["annotated_set"].add(patch["path"])
+    session["annotated_count"] += 1
+    session["annotation_counter"] += 1
+    session["current_index"] += 1
+
+    # Backup every N annotations
+    if session["annotation_counter"] >= BACKUP_INTERVAL:
+        backup_csv(session["csv_path"])
+        session["annotation_counter"] = 0
+
+    # Return next patch info
+    if session["current_index"] >= len(session["patch_list"]):
+        return {"done": True, "message": "All patches annotated!"}
+
+    next_patch = session["patch_list"][session["current_index"]]
+    return {
+        "done": False,
+        "patch_path": next_patch["path"],
+        "class_name": next_patch["class_name"],
+        "split": next_patch["split"],
+        "index": session["current_index"],
+        "total": len(session["patch_list"]),
+        "annotated_count": session["annotated_count"],
+    }
+
+
+@app.post("/api/skip")
+async def api_skip(req: SkipRequest):
+    config = load_config()
+    if not config:
+        raise HTTPException(400, "Setup not complete")
+    name = config["name"]
+    session = sessions.get(name)
+    if not session:
+        raise HTTPException(400, "Session not found")
+
+    if session["current_index"] >= len(session["patch_list"]):
+        raise HTTPException(400, "No more patches")
+
+    patch = session["patch_list"][session["current_index"]]
+    if patch["path"] != req.patch_path:
+        raise HTTPException(400, "Patch path mismatch")
+
+    # Save skip entry
+    now = datetime.now(timezone.utc).isoformat()
+    row = {
+        "patch_path": patch["path"],
+        "class_name": patch["class_name"],
+        "split": patch["split"],
+        "label": "",
+        "annotator": name,
+        "timestamp": now,
+        "is_skipped": "True",
+    }
+    append_csv(session["csv_path"], row)
+
+    session["skipped_set"].add(patch["path"])
+    session["current_index"] += 1
+
+    # Return next patch
+    if session["current_index"] >= len(session["patch_list"]):
+        return {"done": True, "message": "All patches processed!"}
+
+    next_patch = session["patch_list"][session["current_index"]]
+    return {
+        "done": False,
+        "patch_path": next_patch["path"],
+        "class_name": next_patch["class_name"],
+        "split": next_patch["split"],
+        "index": session["current_index"],
+        "total": len(session["patch_list"]),
+        "annotated_count": session["annotated_count"],
+    }
+
+
+@app.post("/api/undo")
+async def api_undo():
+    config = load_config()
+    if not config:
+        raise HTTPException(400, "Setup not complete")
+    name = config["name"]
+    session = sessions.get(name)
+    if not session:
+        raise HTTPException(400, "Session not found")
+
+    if not session["history"]:
+        raise HTTPException(400, "Nothing to undo")
+
+    # Pop last annotation from history
+    last = session["history"].pop()
+
+    # Rewrite CSV without last row
+    rewrite_csv_without_last(session["csv_path"])
+
+    # Restore state
+    session["current_index"] = last["index"]
+    session["annotated_set"].discard(last["patch"]["path"])
+    session["annotated_count"] = max(0, session["annotated_count"] - 1)
+
+    return {
+        "patch_path": last["patch"]["path"],
+        "class_name": last["patch"]["class_name"],
+        "split": last["patch"]["split"],
+        "index": session["current_index"],
+        "total": len(session["patch_list"]),
+        "annotated_count": session["annotated_count"],
+    }
+
+
+@app.get("/api/history")
+async def api_history():
+    config = load_config()
+    if not config:
+        return {"history": []}
+    name = config["name"]
+    session = sessions.get(name)
+    if not session:
+        return {"history": []}
+
+    # Return last 5 annotations
+    recent = session["history"][-5:]
+    return {
+        "history": [
+            {
+                "patch_path": h["patch"]["path"],
+                "class_name": h["patch"]["class_name"],
+                "label": h["row"]["label"],
+            }
+            for h in recent
+        ]
+    }
+
+
+@app.get("/api/progress")
+async def api_progress():
+    config = load_config()
+    if not config:
+        raise HTTPException(400, "Setup not complete")
+    name = config["name"]
+    session = sessions.get(name)
+    if not session:
+        raise HTTPException(400, "Session not found")
+
+    total = len(session["patch_list"])
+    current = session["current_index"]
+    remaining = total - current
+    percent = (current / total * 100) if total > 0 else 0
+
+    return {
+        "total": total,
+        "current": current,
+        "annotated": session["annotated_count"],
+        "remaining": remaining,
+        "percent": round(percent, 1),
+    }
+
+
+@app.get("/api/dashboard-data")
+async def api_dashboard_data():
+    """Read all annotations CSV files and return dashboard statistics."""
+    annotator_stats = []
+    class_stats: dict[str, dict] = {}
+    total_annotated = 0
+    total_skipped = 0
+    label_counts = {"healthy": 0, "unhealthy": 0}
+
+    # Load assignments to get total per annotator
+    assignments = {}
+    if ASSIGNMENTS_PATH.exists():
+        with open(ASSIGNMENTS_PATH, "r", encoding="utf-8") as f:
+            assignments = json.load(f)
+
+    # Count total patches per annotator from assignments
+    annotator_totals = {}
+    if assignments:
+        for ann_name, folders in assignments.items():
+            count = 0
+            for folder_rel in folders:
+                folder_path = DATASET_DIR / folder_rel
+                if folder_path.exists():
+                    count += sum(1 for f in folder_path.iterdir()
+                                 if f.suffix.lower() in (".jpg", ".jpeg", ".png"))
+            annotator_totals[ann_name] = count
+
+    # Read all CSV files
+    for csv_file in ANNOTATIONS_DIR.glob("annotations_*.csv"):
+        if csv_file.suffix == ".bak":
+            continue
+        annotator_name = csv_file.stem.replace("annotations_", "")
+        try:
+            with open(csv_file, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                rows = list(reader)
+        except Exception:
+            continue
+
+        done = sum(1 for r in rows if r.get("is_skipped") != "True")
+        skipped = sum(1 for r in rows if r.get("is_skipped") == "True")
+        total = annotator_totals.get(annotator_name, 0)
+
+        annotator_stats.append({
+            "name": annotator_name,
+            "assigned": total,
+            "done": done,
+            "skipped": skipped,
+            "percent": round(done / total * 100, 1) if total > 0 else 0,
+        })
+
+        total_annotated += done
+        total_skipped += skipped
+
+        for row in rows:
+            if row.get("is_skipped") != "True":
+                label = row.get("label", "")
+                if label in label_counts:
+                    label_counts[label] += 1
+                class_name = row.get("class_name", "unknown")
+                if class_name not in class_stats:
+                    class_stats[class_name] = {"total": 0, "done": 0}
+                class_stats[class_name]["done"] += 1
+
+    # Count total patches per class
+    for split in ["train", "test"]:
+        needs_annot = DATASET_DIR / split / "needs_annotation"
+        if needs_annot.exists():
+            for class_dir in needs_annot.iterdir():
+                if class_dir.is_dir():
+                    cn = class_dir.name
+                    if cn not in class_stats:
+                        class_stats[cn] = {"total": 0, "done": 0}
+                    count = sum(1 for f in class_dir.iterdir()
+                                if f.suffix.lower() in (".jpg", ".jpeg", ".png"))
+                    class_stats[cn]["total"] += count
+
+    # Build class list with percentages
+    class_list = []
+    for cn, stats in sorted(class_stats.items()):
+        pct = round(stats["done"] / stats["total"] * 100, 1) if stats["total"] > 0 else 0
+        class_list.append({
+            "name": cn,
+            "total": stats["total"],
+            "done": stats["done"],
+            "percent": pct,
+        })
+
+    # Overall total
+    grand_total = sum(c["total"] for c in class_list)
+    grand_done = sum(c["done"] for c in class_list)
+    grand_pct = round(grand_done / grand_total * 100, 1) if grand_total > 0 else 0
+
+    return {
+        "annotators": annotator_stats,
+        "classes": class_list,
+        "overall": {
+            "total": grand_total,
+            "done": grand_done,
+            "skipped": total_skipped,
+            "percent": grand_pct,
+        },
+        "labels": label_counts,
+    }
+
+
+@app.get("/image/{path:path}")
+async def serve_image(path: str):
+    """Serve a patch image from dataset_patches directory."""
+    file_path = DATASET_DIR / path
+    if not file_path.exists() or not file_path.is_file():
+        return Response(content=PLACEHOLDER_SVG, media_type="image/svg+xml")
+    return FileResponse(file_path)
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

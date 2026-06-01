@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patch Annotation</title>
+    <link rel="stylesheet" href="/static/css/index.css">
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <span class="annotator-name" id="annotatorName">{{ annotator_name }}</span>
+            <span class="progress-text" id="progressText"></span>
+        </div>
+        <div class="header-right">
+            <a href="/dashboard" class="btn-link">Dashboard</a>
+        </div>
+    </div>
+
+    <!-- Flash notification -->
+    <div class="flash" id="flash"></div>
+
+    <!-- Main content -->
+    <div class="main" id="mainContent">
+        <div class="loading">Loading...</div>
+    </div>
+
+    <!-- Setup modal -->
+    <div class="modal-overlay" id="setupModal">
+        <div class="modal">
+            <h2>Welcome</h2>
+            <p>Enter your name to start annotating</p>
+            <div class="error-msg" id="setupError"></div>
+            <input type="text" id="nameInput" placeholder="Your name" autocomplete="off">
+            <button class="btn btn-healthy" id="setupBtn">Start Annotating</button>
+        </div>
+    </div>
+
+    <script src="/static/js/index.js"></script>
+</body>
+</html>

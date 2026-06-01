@@ -1,0 +1,318 @@
+:root {
+    --bg: #1a1a2e;
+    --surface: #16213e;
+    --surface2: #0f3460;
+    --text: #e0e0e0;
+    --text-dim: #888;
+    --healthy: #2ecc71;
+    --healthy-hover: #27ae60;
+    --unhealthy: #e74c3c;
+    --unhealthy-hover: #c0392b;
+    --accent: #3498db;
+    --accent-hover: #2980b9;
+    --skip: #95a5a6;
+    --skip-hover: #7f8c8d;
+    --border: #2c3e50;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+.header {
+    background: var(--surface);
+    padding: 12px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+}
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.annotator-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--accent);
+}
+.progress-text {
+    font-size: 14px;
+    color: var(--text-dim);
+}
+.header-right {
+    display: flex;
+    gap: 12px;
+}
+.btn-link {
+    background: none;
+    border: none;
+    color: var(--accent);
+    cursor: pointer;
+    font-size: 14px;
+    text-decoration: none;
+    padding: 0;
+}
+.btn-link:hover { text-decoration: underline; }
+
+/* Main content */
+.main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    gap: 20px;
+}
+
+/* Class info */
+.class-info {
+    text-align: center;
+    font-size: 16px;
+    color: var(--text-dim);
+}
+.class-name {
+    font-weight: 600;
+    color: var(--text);
+    font-size: 18px;
+}
+
+/* Image container */
+.image-container {
+    position: relative;
+    width: 320px;
+    height: 320px;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.patch-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}
+.image-counter {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--text-dim);
+}
+
+/* Progress bar */
+.progress-container {
+    width: 100%;
+    max-width: 400px;
+}
+.progress-bar-bg {
+    width: 100%;
+    height: 8px;
+    background: var(--surface);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.progress-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.3s ease;
+}
+.progress-stats {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 4px;
+}
+
+/* Buttons */
+.button-row {
+    display: flex;
+    gap: 16px;
+    width: 100%;
+    max-width: 500px;
+}
+.btn {
+    flex: 1;
+    padding: 16px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.btn:active { transform: scale(0.98); }
+.btn-healthy {
+    background: var(--healthy);
+    color: white;
+}
+.btn-healthy:hover { background: var(--healthy-hover); }
+.btn-unhealthy {
+    background: var(--unhealthy);
+    color: white;
+}
+.btn-unhealthy:hover { background: var(--unhealthy-hover); }
+.btn-skip {
+    background: var(--skip);
+    color: white;
+    flex: 0.6;
+}
+.btn-skip:hover { background: var(--skip-hover); }
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.shortcut {
+    font-size: 12px;
+    opacity: 0.8;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+/* History row */
+.history-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+}
+.btn-undo {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    flex: 0;
+    white-space: nowrap;
+}
+.btn-undo:hover { background: var(--border); }
+.btn-undo:disabled { opacity: 0.4; cursor: not-allowed; }
+.thumbnails {
+    display: flex;
+    gap: 8px;
+}
+.thumbnail {
+    width: 48px;
+    height: 48px;
+    border-radius: 4px;
+    object-fit: cover;
+    image-rendering: pixelated;
+    border: 2px solid transparent;
+}
+.thumbnail.healthy { border-color: var(--healthy); }
+.thumbnail.unhealthy { border-color: var(--unhealthy); }
+
+/* Setup modal */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+.modal-overlay.hidden { display: none; }
+.modal {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 32px;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+}
+.modal h2 {
+    margin-bottom: 8px;
+    font-size: 22px;
+}
+.modal p {
+    color: var(--text-dim);
+    margin-bottom: 20px;
+    font-size: 14px;
+}
+.modal input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 16px;
+    margin-bottom: 16px;
+}
+.modal input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+.modal .btn {
+    width: 100%;
+}
+.error-msg {
+    color: var(--unhealthy);
+    font-size: 13px;
+    margin-bottom: 12px;
+    display: none;
+}
+
+/* Done screen */
+.done-screen {
+    text-align: center;
+    padding: 40px;
+}
+.done-screen h2 {
+    font-size: 28px;
+    color: var(--healthy);
+    margin-bottom: 12px;
+}
+.done-screen p {
+    color: var(--text-dim);
+    font-size: 16px;
+}
+
+/* Loading */
+.loading {
+    color: var(--text-dim);
+    font-size: 16px;
+}
+
+/* Notification flash */
+.flash {
+    position: fixed;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 50;
+}
+.flash.show { opacity: 1; }
+.flash.healthy { background: var(--healthy); color: white; }
+.flash.unhealthy { background: var(--unhealthy); color: white; }
+.flash.skip { background: var(--skip); color: white; }
