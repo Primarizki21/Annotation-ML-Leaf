@@ -11,6 +11,7 @@ wheels/
 
 # Dataset
 dataset_patches/
+dataset_filtered/
 
 # Generated files from Python scripts
 annotator_config.json
