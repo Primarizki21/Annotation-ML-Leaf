@@ -7,12 +7,13 @@ Used by annotators to label plant leaf patches as "healthy" or "unhealthy".
 
 import csv
 import json
+import re
 import shutil
 import sys
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
-
+from PIL import Image
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -50,6 +51,7 @@ app.add_middleware(ExceptionLoggingMiddleware)
 # Paths
 BASE_DIR = Path(__file__).parent
 DATASET_DIR = BASE_DIR / "dataset_patches"
+DATASET_FILTERED_DIR = BASE_DIR / "dataset_filtered"
 ANNOTATIONS_DIR = BASE_DIR / "annotations"
 CONFIG_PATH = BASE_DIR / "annotator_config.json"
 ASSIGNMENTS_PATH = BASE_DIR / "assignments.json"
@@ -69,6 +71,61 @@ PLACEHOLDER_SVG = b'''<svg xmlns="http://www.w3.org/2000/svg" width="64" height=
 
 BACKUP_INTERVAL = 100
 MAX_HISTORY = 10
+PATCH_SIZE = 64
+
+# Regex to extract row/col from patch filename
+PATCH_RC_RE = re.compile(r"__r(\d+)_c(\d+)\.\w+$")
+
+# In-memory leaf index: (split, class_name, leaf_stem) -> leaf data
+leaf_index: dict[tuple[str, str, str], dict] = {}
+
+
+def build_leaf_index():
+    global leaf_index
+    leaf_index = {}
+    for split in ("train", "test"):
+        meta_path = DATASET_DIR / f"metadata_{split}.json"
+        if not meta_path.exists():
+            continue
+        with open(meta_path, "r", encoding="utf-8") as f:
+            entries = json.load(f)
+        for entry in entries:
+            # Extract leaf stem from patch filename
+            patch_path_raw = entry["patch_path"]
+            filename = patch_path_raw.replace("\\", "/").split("/")[-1]
+            m = PATCH_RC_RE.search(filename)
+            if not m:
+                continue
+            leaf_stem = filename[: m.start()]
+            row = entry["row"]
+            col = entry["col"]
+            class_name = entry["class_name"]
+
+            # Normalized patch_path for frontend (forward slashes, with split prefix)
+            norm_patch = f"{split}/needs_annotation/{class_name}/{filename}"
+
+            key = (split, class_name, leaf_stem)
+            if key not in leaf_index:
+                # Derive source image URL: raw/segmented/{class_name}/{stem}.jpg
+                source_url = f"raw/segmented/{class_name}/{leaf_stem}.jpg"
+                leaf_index[key] = {
+                    "source_image_url": source_url,
+                    "patches": [],
+                    "grid_rows": 0,
+                    "grid_cols": 0,
+                }
+            leaf_data = leaf_index[key]
+            leaf_data["patches"].append({
+                "patch_path": norm_patch,
+                "row": row,
+                "col": col,
+            })
+            leaf_data["grid_rows"] = max(leaf_data["grid_rows"], row + 1)
+            leaf_data["grid_cols"] = max(leaf_data["grid_cols"], col + 1)
+
+    # Sort patches by row, then col for consistent ordering
+    for leaf_data in leaf_index.values():
+        leaf_data["patches"].sort(key=lambda p: (p["row"], p["col"]))
 
 
 # --- Pydantic models ---
@@ -203,6 +260,14 @@ def backup_csv(csv_path: Path):
     if csv_path.exists():
         backup_path = csv_path.with_suffix(".csv.bak")
         shutil.copy2(csv_path, backup_path)
+
+
+# --- Startup ---
+
+@app.on_event("startup")
+async def startup_event():
+    build_leaf_index()
+    print(f"Leaf index built: {len(leaf_index)} leaves indexed", file=sys.stderr)
 
 
 # --- Page routes ---
@@ -594,10 +659,115 @@ async def api_dashboard_data():
     }
 
 
+@app.get("/api/leaf-context/{split}/{class_name}/{leaf_stem}")
+async def api_leaf_context(split: str, class_name: str, leaf_stem: str):
+    key = (split, class_name, leaf_stem)
+    if key not in leaf_index:
+        raise HTTPException(404, f"Leaf not found: {leaf_stem}")
+
+    leaf_data = leaf_index[key]
+
+    # Get current annotator session for label lookup
+    config = load_config()
+    current_patch_path = None
+    annotated_map: dict[str, str] = {}  # patch_path -> label
+    if config:
+        name = config["name"]
+        session = sessions.get(name)
+        if session:
+            # Current patch
+            if session["current_index"] < len(session["patch_list"]):
+                current_patch_path = session["patch_list"][session["current_index"]]["path"]
+            # Build label map from CSV
+            csv_path = session["csv_path"]
+            if csv_path.exists():
+                try:
+                    with open(csv_path, "r", encoding="utf-8") as f:
+                        reader = csv.DictReader(f)
+                        for row in reader:
+                            pp = row.get("patch_path", "")
+                            if row.get("is_skipped") == "True":
+                                annotated_map[pp] = "skipped"
+                            elif row.get("label"):
+                                annotated_map[pp] = row["label"]
+                except Exception:
+                    pass
+
+    patches_out = []
+    annotated_count = 0
+    for p in leaf_data["patches"]:
+        label = annotated_map.get(p["patch_path"])
+        if label:
+            annotated_count += 1
+        patches_out.append({
+            "patch_path": p["patch_path"],
+            "row": p["row"],
+            "col": p["col"],
+            "label": label,
+            "is_current": p["patch_path"] == current_patch_path,
+        })
+
+    # Read actual image dimensions from the source file
+    source_rel = leaf_data["source_image_url"]  # e.g. raw/segmented/Class/stem.jpg
+    source_file = DATASET_FILTERED_DIR / source_rel
+    img_width = leaf_data["grid_cols"] * PATCH_SIZE
+    img_height = leaf_data["grid_rows"] * PATCH_SIZE
+    if source_file.exists():
+        try:
+            with Image.open(source_file) as im:
+                img_width, img_height = im.size
+        except Exception:
+            pass
+
+    return {
+        "source_image_url": f"/raw-image/{source_rel}",
+        "patches": patches_out,
+        "grid_rows": leaf_data["grid_rows"],
+        "grid_cols": leaf_data["grid_cols"],
+        "img_width": img_width,
+        "img_height": img_height,
+        "annotated_count": annotated_count,
+        "total_patches": len(patches_out),
+    }
+
+
+@app.get("/api/jump-to-patch")
+async def api_jump_to_patch(annotator: str, patch_path: str):
+    """Jump to a specific patch by path for the given annotator session."""
+    session = sessions.get(annotator)
+    if not session:
+        raise HTTPException(400, "Session not found")
+
+    # Find the patch in the session's patch_list
+    for i, p in enumerate(session["patch_list"]):
+        if p["path"] == patch_path:
+            session["current_index"] = i
+            return {
+                "done": False,
+                "patch_path": p["path"],
+                "class_name": p["class_name"],
+                "split": p["split"],
+                "index": i,
+                "total": len(session["patch_list"]),
+                "annotated_count": session["annotated_count"],
+            }
+
+    raise HTTPException(404, f"Patch not found in session: {patch_path}")
+
+
 @app.get("/image/{path:path}")
 async def serve_image(path: str):
     """Serve a patch image from dataset_patches directory."""
     file_path = DATASET_DIR / path
+    if not file_path.exists() or not file_path.is_file():
+        return Response(content=PLACEHOLDER_SVG, media_type="image/svg+xml")
+    return FileResponse(file_path)
+
+
+@app.get("/raw-image/{path:path}")
+async def serve_raw_image(path: str):
+    """Serve a raw leaf image from dataset_filtered directory."""
+    file_path = DATASET_FILTERED_DIR / path
     if not file_path.exists() or not file_path.is_file():
         return Response(content=PLACEHOLDER_SVG, media_type="image/svg+xml")
     return FileResponse(file_path)
