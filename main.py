@@ -13,7 +13,12 @@ import sys
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
-from PIL import Image
+
+try:
+    from PIL import Image as _PILImage
+except ImportError:
+    _PILImage = None
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -81,7 +86,13 @@ leaf_index: dict[tuple[str, str, str], dict] = {}
 
 
 def build_leaf_index():
+    """Build leaf index from metadata. Called lazily on first leaf-context request."""
     global leaf_index
+    if leaf_index:
+        return  # Already built
+
+    import time
+    start = time.time()
     leaf_index = {}
     for split in ("train", "test"):
         meta_path = DATASET_DIR / f"metadata_{split}.json"
@@ -90,7 +101,6 @@ def build_leaf_index():
         with open(meta_path, "r", encoding="utf-8") as f:
             entries = json.load(f)
         for entry in entries:
-            # Extract leaf stem from patch filename
             patch_path_raw = entry["patch_path"]
             filename = patch_path_raw.replace("\\", "/").split("/")[-1]
             m = PATCH_RC_RE.search(filename)
@@ -100,13 +110,10 @@ def build_leaf_index():
             row = entry["row"]
             col = entry["col"]
             class_name = entry["class_name"]
-
-            # Normalized patch_path for frontend (forward slashes, with split prefix)
             norm_patch = f"{split}/needs_annotation/{class_name}/{filename}"
 
             key = (split, class_name, leaf_stem)
             if key not in leaf_index:
-                # Derive source image URL: raw/segmented/{class_name}/{stem}.jpg
                 source_url = f"raw/segmented/{class_name}/{leaf_stem}.jpg"
                 leaf_index[key] = {
                     "source_image_url": source_url,
@@ -122,10 +129,14 @@ def build_leaf_index():
             })
             leaf_data["grid_rows"] = max(leaf_data["grid_rows"], row + 1)
             leaf_data["grid_cols"] = max(leaf_data["grid_cols"], col + 1)
+        del entries
 
-    # Sort patches by row, then col for consistent ordering
+    # Sort patches by row, col
     for leaf_data in leaf_index.values():
         leaf_data["patches"].sort(key=lambda p: (p["row"], p["col"]))
+
+    elapsed = time.time() - start
+    print(f"Leaf index built: {len(leaf_index)} leaves in {elapsed:.1f}s", file=sys.stderr)
 
 
 # --- Pydantic models ---
@@ -190,15 +201,20 @@ def init_session(name: str) -> dict:
     csv_path = ANNOTATIONS_DIR / f"annotations_{name}.csv"
     annotated_set = set()
     skipped_set = set()
+    label_map: dict[str, str] = {}  # patch_path -> label
     if csv_path.exists():
         try:
             with open(csv_path, "r", encoding="utf-8") as f:
                 reader = csv.DictReader(f)
                 for row in reader:
+                    pp = row["patch_path"]
                     if row.get("is_skipped") == "True":
-                        skipped_set.add(row["patch_path"])
+                        skipped_set.add(pp)
+                        label_map[pp] = "skipped"
                     else:
-                        annotated_set.add(row["patch_path"])
+                        annotated_set.add(pp)
+                        if row.get("label"):
+                            label_map[pp] = row["label"]
         except Exception:
             pass  # Corrupted CSV, start fresh
 
@@ -207,14 +223,16 @@ def init_session(name: str) -> dict:
 
     session = {
         "patch_list": remaining,
+        "path_to_index": {p["path"]: i for i, p in enumerate(remaining)},
         "current_index": 0,
         "history": [],
         "annotated_set": annotated_set,
         "skipped_set": skipped_set,
+        "label_map": label_map,
         "csv_path": csv_path,
         "total_original": len(patch_list),
         "annotated_count": len(annotated_set),
-        "annotation_counter": 0,  # For backup interval
+        "annotation_counter": 0,
     }
     sessions[name] = session
     return session
@@ -266,8 +284,7 @@ def backup_csv(csv_path: Path):
 
 @app.on_event("startup")
 async def startup_event():
-    build_leaf_index()
-    print(f"Leaf index built: {len(leaf_index)} leaves indexed", file=sys.stderr)
+    print("Leaf index will be built on first request", file=sys.stderr)
 
 
 # --- Page routes ---
@@ -397,6 +414,7 @@ async def api_annotate(req: AnnotateRequest):
 
     # Update state
     session["annotated_set"].add(patch["path"])
+    session["label_map"][patch["path"]] = req.label
     session["annotated_count"] += 1
     session["annotation_counter"] += 1
     session["current_index"] += 1
@@ -453,6 +471,7 @@ async def api_skip(req: SkipRequest):
     append_csv(session["csv_path"], row)
 
     session["skipped_set"].add(patch["path"])
+    session["label_map"][patch["path"]] = "skipped"
     session["current_index"] += 1
 
     # Return next patch
@@ -493,6 +512,7 @@ async def api_undo():
     # Restore state
     session["current_index"] = last["index"]
     session["annotated_set"].discard(last["patch"]["path"])
+    session["label_map"].pop(last["patch"]["path"], None)
     session["annotated_count"] = max(0, session["annotated_count"] - 1)
 
     return {
@@ -661,6 +681,8 @@ async def api_dashboard_data():
 
 @app.get("/api/leaf-context/{split}/{class_name}/{leaf_stem}")
 async def api_leaf_context(split: str, class_name: str, leaf_stem: str):
+    build_leaf_index()  # Lazy init
+
     key = (split, class_name, leaf_stem)
     if key not in leaf_index:
         raise HTTPException(404, f"Leaf not found: {leaf_stem}")
@@ -670,33 +692,19 @@ async def api_leaf_context(split: str, class_name: str, leaf_stem: str):
     # Get current annotator session for label lookup
     config = load_config()
     current_patch_path = None
-    annotated_map: dict[str, str] = {}  # patch_path -> label
+    label_map: dict[str, str] = {}
     if config:
         name = config["name"]
         session = sessions.get(name)
         if session:
-            # Current patch
             if session["current_index"] < len(session["patch_list"]):
                 current_patch_path = session["patch_list"][session["current_index"]]["path"]
-            # Build label map from CSV
-            csv_path = session["csv_path"]
-            if csv_path.exists():
-                try:
-                    with open(csv_path, "r", encoding="utf-8") as f:
-                        reader = csv.DictReader(f)
-                        for row in reader:
-                            pp = row.get("patch_path", "")
-                            if row.get("is_skipped") == "True":
-                                annotated_map[pp] = "skipped"
-                            elif row.get("label"):
-                                annotated_map[pp] = row["label"]
-                except Exception:
-                    pass
+            label_map = session["label_map"]
 
     patches_out = []
     annotated_count = 0
     for p in leaf_data["patches"]:
-        label = annotated_map.get(p["patch_path"])
+        label = label_map.get(p["patch_path"])
         if label:
             annotated_count += 1
         patches_out.append({
@@ -707,70 +715,74 @@ async def api_leaf_context(split: str, class_name: str, leaf_stem: str):
             "is_current": p["patch_path"] == current_patch_path,
         })
 
-    # Read actual image dimensions from the source file
-    source_rel = leaf_data["source_image_url"]  # e.g. raw/segmented/Class/stem.jpg
-    source_file = DATASET_FILTERED_DIR / source_rel
-    img_width = leaf_data["grid_cols"] * PATCH_SIZE
-    img_height = leaf_data["grid_rows"] * PATCH_SIZE
-    if source_file.exists():
-        try:
-            with Image.open(source_file) as im:
-                img_width, img_height = im.size
-        except Exception:
-            pass
+    source_rel = leaf_data["source_image_url"]
+
+    # Compute image dimensions (cached in leaf_data after first read)
+    if "img_width" not in leaf_data:
+        leaf_data["img_width"] = leaf_data["grid_cols"] * PATCH_SIZE
+        leaf_data["img_height"] = leaf_data["grid_rows"] * PATCH_SIZE
+        if _PILImage is not None:
+            source_file = DATASET_FILTERED_DIR / source_rel
+            if source_file.exists():
+                try:
+                    with _PILImage.open(source_file) as im:
+                        leaf_data["img_width"], leaf_data["img_height"] = im.size
+                except Exception:
+                    pass
 
     return {
         "source_image_url": f"/raw-image/{source_rel}",
         "patches": patches_out,
         "grid_rows": leaf_data["grid_rows"],
         "grid_cols": leaf_data["grid_cols"],
-        "img_width": img_width,
-        "img_height": img_height,
+        "img_width": leaf_data["img_width"],
+        "img_height": leaf_data["img_height"],
         "annotated_count": annotated_count,
         "total_patches": len(patches_out),
     }
 
 
 @app.get("/api/jump-to-patch")
-async def api_jump_to_patch(annotator: str, patch_path: str):
-    """Jump to a specific patch by path for the given annotator session."""
-    session = sessions.get(annotator)
+async def api_jump_to_patch(patch_path: str):
+    config = load_config()
+    if not config:
+        raise HTTPException(400, "Setup not complete")
+    session = sessions.get(config["name"])
     if not session:
         raise HTTPException(400, "Session not found")
 
-    # Find the patch in the session's patch_list
-    for i, p in enumerate(session["patch_list"]):
-        if p["path"] == patch_path:
-            session["current_index"] = i
-            return {
-                "done": False,
-                "patch_path": p["path"],
-                "class_name": p["class_name"],
-                "split": p["split"],
-                "index": i,
-                "total": len(session["patch_list"]),
-                "annotated_count": session["annotated_count"],
-            }
+    idx = session["path_to_index"].get(patch_path)
+    if idx is None:
+        raise HTTPException(404, f"Patch not found in session: {patch_path}")
 
-    raise HTTPException(404, f"Patch not found in session: {patch_path}")
+    session["current_index"] = idx
+    p = session["patch_list"][idx]
+    return {
+        "done": False,
+        "patch_path": p["path"],
+        "class_name": p["class_name"],
+        "split": p["split"],
+        "index": idx,
+        "total": len(session["patch_list"]),
+        "annotated_count": session["annotated_count"],
+    }
+
+
+def _serve_image_from(base_dir: Path, path: str):
+    file_path = base_dir / path
+    if not file_path.exists() or not file_path.is_file():
+        return Response(content=PLACEHOLDER_SVG, media_type="image/svg+xml")
+    return FileResponse(file_path)
 
 
 @app.get("/image/{path:path}")
 async def serve_image(path: str):
-    """Serve a patch image from dataset_patches directory."""
-    file_path = DATASET_DIR / path
-    if not file_path.exists() or not file_path.is_file():
-        return Response(content=PLACEHOLDER_SVG, media_type="image/svg+xml")
-    return FileResponse(file_path)
+    return _serve_image_from(DATASET_DIR, path)
 
 
 @app.get("/raw-image/{path:path}")
 async def serve_raw_image(path: str):
-    """Serve a raw leaf image from dataset_filtered directory."""
-    file_path = DATASET_FILTERED_DIR / path
-    if not file_path.exists() or not file_path.is_file():
-        return Response(content=PLACEHOLDER_SVG, media_type="image/svg+xml")
-    return FileResponse(file_path)
+    return _serve_image_from(DATASET_FILTERED_DIR, path)
 
 
 if __name__ == "__main__":
