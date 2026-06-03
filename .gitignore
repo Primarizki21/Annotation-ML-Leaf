@@ -18,6 +18,7 @@ annotator_config.json
 assignments.json
 annotations/
 annotations_master.csv
+dataset_consensus_only
 
 # OpenClaude
 .openclaude/
@@ -25,8 +26,16 @@ annotations_master.csv
 # .md Files for Coding Agent
 instruction.md
 new-feature.md
+instruksi_consensus.md
+calibration_phase.md
 
 # Compressed Files
 *.zip
 *.rar
 *.7z
+
+# Exceptions Files
+extract_consensus.py
+filtering_gambar.py
+patch_splitting.py
+assignments_original.json

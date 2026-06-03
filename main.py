@@ -55,11 +55,13 @@ app.add_middleware(ExceptionLoggingMiddleware)
 
 # Paths
 BASE_DIR = Path(__file__).parent
-DATASET_DIR = BASE_DIR / "dataset_patches"
+# DATASET_DIR = BASE_DIR / "dataset_patches" # original patches
+DATASET_DIR = BASE_DIR / "dataset_consensus_only"
 DATASET_FILTERED_DIR = BASE_DIR / "dataset_filtered"
 ANNOTATIONS_DIR = BASE_DIR / "annotations"
 CONFIG_PATH = BASE_DIR / "annotator_config.json"
-ASSIGNMENTS_PATH = BASE_DIR / "assignments.json"
+# ASSIGNMENTS_PATH = BASE_DIR / "assignments.json" # original json
+ASSIGNMENTS_PATH = BASE_DIR / "assignments_consensus.json"
 
 # Ensure annotations directory exists
 ANNOTATIONS_DIR.mkdir(exist_ok=True)
