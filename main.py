@@ -70,15 +70,15 @@ ANNOTATIONS_DIR.mkdir(exist_ok=True)
 sessions: dict[str, dict] = {}
 
 # Placeholder SVG for missing images
-PLACEHOLDER_SVG = b'''<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
-  <rect width="64" height="64" fill="#333"/>
+PLACEHOLDER_SVG = b'''<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+  <rect width="32" height="32" fill="#333"/>
   <text x="32" y="30" text-anchor="middle" fill="#888" font-size="9">Missing</text>
   <text x="32" y="42" text-anchor="middle" fill="#888" font-size="9">Image</text>
 </svg>'''
 
 BACKUP_INTERVAL = 100
-MAX_HISTORY = 10
-PATCH_SIZE = 64
+MAX_HISTORY = 20
+PATCH_SIZE = 32
 
 # Regex to extract row/col from patch filename
 PATCH_RC_RE = re.compile(r"__r(\d+)_c(\d+)\.\w+$")
@@ -120,8 +120,8 @@ def build_leaf_index():
                 leaf_index[key] = {
                     "source_image_url": source_url,
                     "patches": [],
-                    "grid_rows": 0,
-                    "grid_cols": 0,
+                    "grid_rows": 8,
+                    "grid_cols": 8,
                 }
             leaf_data = leaf_index[key]
             leaf_data["patches"].append({
@@ -719,18 +719,10 @@ async def api_leaf_context(split: str, class_name: str, leaf_stem: str):
 
     source_rel = leaf_data["source_image_url"]
 
-    # Compute image dimensions (cached in leaf_data after first read)
+    # Compute image dimensions from grid size (cached after first read)
     if "img_width" not in leaf_data:
         leaf_data["img_width"] = leaf_data["grid_cols"] * PATCH_SIZE
         leaf_data["img_height"] = leaf_data["grid_rows"] * PATCH_SIZE
-        if _PILImage is not None:
-            source_file = DATASET_FILTERED_DIR / source_rel
-            if source_file.exists():
-                try:
-                    with _PILImage.open(source_file) as im:
-                        leaf_data["img_width"], leaf_data["img_height"] = im.size
-                except Exception:
-                    pass
 
     return {
         "source_image_url": f"/raw-image/{source_rel}",

@@ -1,4 +1,4 @@
-var PATCH_SIZE = 64;
+const PATCH_SIZE = 32;
 var _gridObserver = null;
 
 var state = {
@@ -241,12 +241,20 @@ function renderRightPanel(ctx) {
 
         canvas.width = w;
         canvas.height = h;
+        canvas.style.width = w + 'px';
+        canvas.style.height = h + 'px';
         var c = canvas.getContext('2d');
         c.clearRect(0, 0, w, h);
 
         // Scale from actual image pixels to displayed size
         var scaleX = w / ctx.img_width;
         var scaleY = h / ctx.img_height;
+
+        console.log('[grid]', 'display:', w, 'x', h,
+            'img:', ctx.img_width, 'x', ctx.img_height,
+            'grid:', ctx.grid_cols, 'x', ctx.grid_rows,
+            'cell:', (ctx.img_width / ctx.grid_cols).toFixed(1) + 'px logical',
+            '->', (w / ctx.grid_cols).toFixed(1) + 'px display');
         var cellW = PATCH_SIZE * scaleX;
         var cellH = PATCH_SIZE * scaleY;
 
