@@ -41,7 +41,4 @@ calibration_phase.md
 *.7z
 
 # Exceptions Files
-extract_consensus.py
-filtering_gambar.py
-patch_splitting.py
 assignments_original.json
