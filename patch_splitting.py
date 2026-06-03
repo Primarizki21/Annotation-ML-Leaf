@@ -8,7 +8,7 @@ from tqdm import tqdm
 # ── CONFIG ───────────────────────────────────────────────────────────────────
 FILTERED_DIR  = "./dataset_filtered"
 PATCHES_DIR   = "./dataset_patches"      # output patch
-PATCH_SIZE    = 64                        # ukuran patch (bisa ganti 32 atau 128)
+PATCH_SIZE    = 32                        # ukuran patch (bisa ganti 32 atau 128)
 BLACK_THRESH  = 100.0                     # buang patch dengan % black pixel >= ini
 MIN_LEAF_PCT  = 15.0                     # buang patch dengan % pixel daun < threshold ini
 # Untuk patch dari gambar DISEASED: perlu anotasi manual
