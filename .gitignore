@@ -18,10 +18,16 @@ annotator_config.json
 assignments.json
 annotations/
 annotations_master.csv
-dataset_consensus_only
+
+# All folder containing dataset_
+dataset_*/ 
 
 # OpenClaude
 .openclaude/
+
+# Agent Skills
+.agents/
+skills-lock.json
 
 # .md Files for Coding Agent
 instruction.md
