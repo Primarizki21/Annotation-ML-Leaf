@@ -40,6 +40,36 @@ export class ApiClient {
         });
     }
 
+    setupReview(name) {
+        return fetch('/api/setup-review', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name: name})
+        }).then(function(res) {
+            if (!res.ok) {
+                return res.json().then(function(err) {
+                    throw new Error(err.detail || 'Review setup failed');
+                });
+            }
+            return res.json();
+        });
+    }
+
+    setupNormal(name) {
+        return fetch('/api/setup-normal', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name: name})
+        }).then(function(res) {
+            if (!res.ok) {
+                return res.json().then(function(err) {
+                    throw new Error(err.detail || 'Normal setup failed');
+                });
+            }
+            return res.json();
+        });
+    }
+
     getCurrentPatch() {
         return fetch('/api/patch/current').then(function(res) { return res.json(); });
     }

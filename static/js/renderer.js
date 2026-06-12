@@ -290,12 +290,16 @@ export class Renderer {
 
     // ── Done screen ──
 
-    showDoneScreen() {
+    showDoneScreen(mode) {
+        var heading = (mode === 'review') ? 'Review Complete!' : 'All Done!';
+        var message = (mode === 'review')
+            ? 'You have finished reviewing all disputed patches.'
+            : 'You have annotated all assigned patches.';
         this.mainContent.className = 'main single-panel';
         this.mainContent.innerHTML =
             '<div class="done-screen">' +
-                '<h2>All Done!</h2>' +
-                '<p>You have annotated all assigned patches.</p>' +
+                '<h2>' + heading + '</h2>' +
+                '<p>' + message + '</p>' +
                 '<p style="margin-top: 16px;">' +
                     '<a href="/dashboard" class="btn-link" style="font-size: 16px;">View Dashboard</a>' +
                 '</p>' +
@@ -314,10 +318,18 @@ export class Renderer {
     // ── Flash notification ──
 
     showFlash(type) {
-        this.flash.textContent = FLASH_LABELS[type] || type;
-        this.flash.className = 'flash ' + type + ' show';
+        var label = FLASH_LABELS[type];
+        var duration = 800;
+        if (label) {
+            this.flash.textContent = label;
+            this.flash.className = 'flash ' + type + ' show';
+        } else {
+            this.flash.textContent = type;
+            this.flash.className = 'flash info show';
+            duration = 2500;
+        }
         setTimeout(() => {
             this.flash.classList.remove('show');
-        }, 800);
+        }, duration);
     }
 }
