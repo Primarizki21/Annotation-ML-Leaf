@@ -18,6 +18,10 @@ annotator_config.json
 assignments.json
 annotations/
 annotations_master.csv
+models/
+docs/
+consensus_review_master.csv
+fleiss_kappa_per_class.png
 
 # All folder containing dataset_
 dataset_*/ 
