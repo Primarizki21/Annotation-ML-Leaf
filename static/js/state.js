@@ -21,6 +21,7 @@ export class State {
         this.currentPatch = null;
         this.history = [];
         this.annotatorName = '';
+        this.mode = 'normal';
         this.done = false;
         this.loading = true;
         this.leafContext = null;

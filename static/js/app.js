@@ -35,12 +35,16 @@ export class App {
         this.nameInput = document.getElementById('nameInput');
         this.setupBtn = document.getElementById('setupBtn');
         this.annotatorNameEl = document.getElementById('annotatorName');
+        this.reviewBtn = document.getElementById('reviewBtn');
 
         // Bind setup events
         this.setupBtn.addEventListener('click', () => this.doSetup());
         this.nameInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') this.doSetup();
         });
+
+        // Review mode toggle
+        this.reviewBtn.addEventListener('click', () => this.toggleReviewMode());
 
         this.setupKeyboardShortcuts();
     }
@@ -50,7 +54,16 @@ export class App {
             .then((data) => {
                 if (data.setup) {
                     this.state.annotatorName = data.name;
+                    this.state.mode = data.mode || 'normal';
                     this.annotatorNameEl.textContent = data.name;
+                    var revBanner = document.getElementById('reviewBanner');
+                    if (data.mode === 'review') {
+                        this.annotatorNameEl.textContent = '[Review] ' + data.name;
+                        if (revBanner) revBanner.classList.remove('hidden');
+                    } else {
+                        if (revBanner) revBanner.classList.add('hidden');
+                    }
+                    this.updateReviewButton(data.mode, data.has_disputed);
                     this.setupModal.classList.add('hidden');
                     this.loadCurrentPatch();
                 } else {
@@ -63,6 +76,43 @@ export class App {
             });
     }
 
+    updateReviewButton(mode, hasDisputed) {
+        if (!this.reviewBtn) return;
+        this.reviewBtn.style.display = '';
+        if (mode === 'review') {
+            this.reviewBtn.textContent = 'Exit Review';
+        } else if (hasDisputed) {
+            this.reviewBtn.textContent = 'Review Disputed';
+        } else {
+            this.reviewBtn.style.display = 'none';
+        }
+    }
+
+    toggleReviewMode() {
+        var name = this.state.annotatorName;
+        if (!name) return;
+
+        if (this.state.mode === 'review') {
+            // Switch back to normal mode
+            this.api.setupNormal(name)
+                .then(() => {
+                    window.location.reload();
+                })
+                .catch((err) => {
+                    console.error('Switch to normal failed:', err);
+                });
+        } else {
+            // Switch to review mode
+            this.api.setupReview(name)
+                .then(() => {
+                    window.location.reload();
+                })
+                .catch((err) => {
+                    this.renderer.showFlash('Download data review terlebih dahulu untuk memulai review.');
+                });
+        }
+    }
+
     doSetup() {
         var name = this.nameInput.value.trim();
         if (!name) {
@@ -73,6 +123,7 @@ export class App {
         this.api.doSetup(name)
             .then((data) => {
                 this.state.annotatorName = data.name;
+                this.state.mode = 'normal';
                 this.annotatorNameEl.textContent = data.name;
                 this.setupModal.classList.add('hidden');
                 this.loadCurrentPatch();
@@ -88,7 +139,7 @@ export class App {
             .then((data) => {
                 if (data.done) {
                     this.state.done = true;
-                    this.renderer.showDoneScreen();
+                    this.renderer.showDoneScreen(this.state.mode);
                     return;
                 }
                 this.state.currentPatch = data;
@@ -148,7 +199,7 @@ export class App {
 
                 if (data.done) {
                     this.state.done = true;
-                    this.renderer.showDoneScreen();
+                    this.renderer.showDoneScreen(this.state.mode);
                 } else {
                     this.state.currentPatch = data;
                     this.state.loading = false;
@@ -172,7 +223,7 @@ export class App {
 
                 if (data.done) {
                     this.state.done = true;
-                    this.renderer.showDoneScreen();
+                    this.renderer.showDoneScreen(this.state.mode);
                 } else {
                     this.state.currentPatch = data;
                     this.state.loading = false;

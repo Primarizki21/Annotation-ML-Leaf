@@ -64,6 +64,26 @@ body {
 }
 .btn-link:hover { text-decoration: underline; }
 
+/* Review banner */
+.review-banner {
+    background: #3d3200;
+    color: #f5d742;
+    padding: 6px 24px 6px 28px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.5;
+    border-bottom: 1px solid #5c4a00;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.review-banner.hidden { display: none; }
+.review-banner::before {
+    content: "\26A0";
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
 /* Main content — three-panel layout */
 .main {
     flex: 1;
@@ -441,3 +461,4 @@ body {
 .flash.healthy { background: var(--healthy); color: white; }
 .flash.unhealthy { background: var(--unhealthy); color: white; }
 .flash.skip { background: var(--skip); color: white; }
+.flash.info { background: #f39c12; color: #1a1a2e; }
