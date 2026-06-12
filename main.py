@@ -62,6 +62,7 @@ ANNOTATIONS_DIR = BASE_DIR / "annotations"
 CONFIG_PATH = BASE_DIR / "annotator_config.json"
 # ASSIGNMENTS_PATH = BASE_DIR / "assignments.json" # original json
 ASSIGNMENTS_PATH = BASE_DIR / "assignments_consensus.json"
+CONSENSUS_REVIEW_CSV = BASE_DIR / "consensus_review_master.csv"
 
 # Ensure annotations directory exists
 ANNOTATIONS_DIR.mkdir(exist_ok=True)
@@ -172,9 +173,9 @@ def load_config() -> dict | None:
     return None
 
 
-def save_config(name: str):
+def save_config(name: str, mode: str = "normal"):
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-        json.dump({"name": name}, f, indent=2)
+        json.dump({"name": name, "mode": mode}, f, indent=2)
 
 
 def init_session(name: str) -> dict:
@@ -238,6 +239,83 @@ def init_session(name: str) -> dict:
     }
     sessions[name] = session
     return session
+
+
+def init_review_session(name: str) -> dict:
+    """Initialize a session for reviewing needs_discussion patches."""
+    if not CONSENSUS_REVIEW_CSV.exists():
+        raise HTTPException(400, "consensus_review_master.csv not found.")
+
+    assignments = load_assignments()
+    if name not in assignments:
+        raise HTTPException(400, f"Annotator '{name}' not found in assignments.json")
+
+    patch_list = []
+    with open(CONSENSUS_REVIEW_CSV, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row.get("needs_discussion") != "True":
+                continue
+            pp = row["patch_path"]
+            parts = pp.split("/")
+            patch_list.append({
+                "path": pp,
+                "class_name": parts[2],
+                "split": parts[0],
+            })
+
+    review_csv_path = ANNOTATIONS_DIR / f"annotations_{name}_review.csv"
+    annotated_set = set()
+    skipped_set = set()
+    label_map: dict[str, str] = {}
+    if review_csv_path.exists():
+        try:
+            with open(review_csv_path, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    pp = row["patch_path"]
+                    if row.get("is_skipped") == "True":
+                        skipped_set.add(pp)
+                        label_map[pp] = "skipped"
+                    else:
+                        annotated_set.add(pp)
+                        if row.get("label"):
+                            label_map[pp] = row["label"]
+        except Exception:
+            pass
+
+    remaining = [p for p in patch_list if p["path"] not in annotated_set]
+
+    session = {
+        "patch_list": remaining,
+        "path_to_index": {p["path"]: i for i, p in enumerate(remaining)},
+        "current_index": 0,
+        "history": [],
+        "annotated_set": annotated_set,
+        "skipped_set": skipped_set,
+        "label_map": label_map,
+        "csv_path": review_csv_path,
+        "total_original": len(patch_list),
+        "annotated_count": len(annotated_set),
+        "annotation_counter": 0,
+    }
+    sessions[name] = session
+    return session
+
+
+def has_disputed_patches() -> bool:
+    """Check if consensus review CSV exists with any needs_discussion patches."""
+    if not CONSENSUS_REVIEW_CSV.exists():
+        return False
+    try:
+        with open(CONSENSUS_REVIEW_CSV, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row.get("needs_discussion") == "True":
+                    return True
+    except Exception:
+        pass
+    return False
 
 
 def append_csv(csv_path: Path, row: dict):
@@ -311,18 +389,34 @@ async def dashboard(request: Request):
 async def api_status():
     config = load_config()
     if not config:
-        return {"setup": False, "name": None}
+        return {"setup": False, "name": None, "mode": None, "has_disputed": has_disputed_patches()}
     name = config["name"]
-    # Check if session exists, if not initialize
+    mode = config.get("mode", "normal")
+    disputed = has_disputed_patches()
+
     if name not in sessions:
         try:
-            init_session(name)
+            if mode == "review":
+                init_review_session(name)
+            else:
+                init_session(name)
         except Exception:
-            return {"setup": False, "name": None}
+            if mode == "review":
+                save_config(name, mode="normal")
+                mode = "normal"
+                try:
+                    init_session(name)
+                except Exception:
+                    return {"setup": False, "name": None, "mode": "normal", "has_disputed": disputed}
+            else:
+                return {"setup": False, "name": None, "mode": "normal", "has_disputed": disputed}
+
     session = sessions[name]
     return {
         "setup": True,
         "name": name,
+        "mode": mode,
+        "has_disputed": disputed,
         "total": session["total_original"],
         "annotated": session["annotated_count"],
     }
@@ -340,10 +434,54 @@ async def api_setup(req: SetupRequest):
         valid_names = list(assignments.keys())
         raise HTTPException(400, f"Annotator '{name}' not found. Valid names: {valid_names}")
 
-    save_config(name)
     session = init_session(name)
+    save_config(name, mode="normal")
     return {
         "setup": True,
+        "name": name,
+        "total": session["total_original"],
+        "annotated": session["annotated_count"],
+    }
+
+
+@app.post("/api/setup-review")
+async def api_setup_review(req: SetupRequest):
+    name = req.name.strip()
+    if not name:
+        raise HTTPException(400, "Name cannot be empty")
+
+    assignments = load_assignments()
+    if name not in assignments:
+        valid_names = list(assignments.keys())
+        raise HTTPException(400, f"Annotator '{name}' not found. Valid names: {valid_names}")
+
+    session = init_review_session(name)
+    save_config(name, mode="review")
+    return {
+        "setup": True,
+        "mode": "review",
+        "name": name,
+        "total": session["total_original"],
+        "annotated": session["annotated_count"],
+    }
+
+
+@app.post("/api/setup-normal")
+async def api_setup_normal(req: SetupRequest):
+    name = req.name.strip()
+    if not name:
+        raise HTTPException(400, "Name cannot be empty")
+
+    assignments = load_assignments()
+    if name not in assignments:
+        valid_names = list(assignments.keys())
+        raise HTTPException(400, f"Annotator '{name}' not found. Valid names: {valid_names}")
+
+    session = init_session(name)
+    save_config(name, mode="normal")
+    return {
+        "setup": True,
+        "mode": "normal",
         "name": name,
         "total": session["total_original"],
         "annotated": session["annotated_count"],
