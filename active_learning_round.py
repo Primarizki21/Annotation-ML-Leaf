@@ -347,7 +347,7 @@ def phase1_main(args):
         args.output = _default_master_csv(args.round)
 
     if args.output.suffix != ".csv":
-        args.output = args.output / "master_predictions_round{args.round}.csv"
+        args.output = args.output / f"master_predictions_round{args.round}.csv"
 
     if args.output.exists():
         args.output.unlink()
@@ -561,9 +561,9 @@ def phase2_generate(args):
             print(f"    ... and {len(skipped_classes) - 5} more")
 
     # ----- 2. Note the uncertain pool (final selection is --phase 3) -----
-    uncertain = master_df[
-        (master_df["agreement_level"] == "unlabeled") &
-        (master_df["margin"] < args.margin_threshold)
+    uncertain = df[
+        (df["agreement_level"] == "unlabeled") &
+        (df["margin"] < args.margin_threshold)
     ].copy()
     print(f"  Uncertain pool: {len(uncertain):,} patches "
           f"(margin < {args.margin_threshold})")
