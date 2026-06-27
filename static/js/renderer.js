@@ -37,6 +37,8 @@ export class Renderer {
         this.mainContent = document.getElementById('mainContent');
         this.flash = document.getElementById('flash');
         this.progressTextEl = document.getElementById('progressText');
+        this.toastContainer = document.getElementById('toastContainer');
+        this._toastQueue = [];
     }
 
     updateProgress(patch) {
@@ -324,6 +326,7 @@ export class Renderer {
         var disabledAttr = this.state.history.length === 0 ? 'disabled' : '';
         var taskLabel, taskColor, action1Label, action1Class, action2Label, action2Class, action1Value, action2Value;
         var modelBox = '';
+        var clusterInfo = '';
 
         if (p.task_type === 'verify_pseudo') {
             taskLabel = 'VERIFY PSEUDO-LABEL';
@@ -358,6 +361,15 @@ export class Renderer {
             action2Label = '&#10007; Unhealthy';
             action2Class = 'btn-unhealthy';
             action2Value = 'unhealthy';
+            if (p.cluster_id !== null && p.cluster_id !== undefined) {
+                var cMargin = (p.cluster_margin !== null && p.cluster_margin !== undefined)
+                    ? p.cluster_margin.toFixed(4) : '?';
+                clusterInfo =
+                    '<div class="cluster-info-box">' +
+                        '<span class="cluster-info-label">Cluster #' + p.cluster_id + '</span>' +
+                        '<span class="cluster-info-meta">margin: ' + cMargin + ' (paling tidak yakin di klaster)</span>' +
+                    '</div>';
+            }
         } else {
             taskLabel = 'UNKNOWN TASK: ' + escapeHtml(p.task_type || '?');
             taskColor = '#e74c3c';
@@ -369,6 +381,30 @@ export class Renderer {
             action2Value = 'unhealthy';
         }
 
+        // Per-task-type progress (2.1)
+        var verifyPct = (p.verify_total > 0)
+            ? (p.verify_done / p.verify_total * 100).toFixed(0) : 0;
+        var hitlPct = (p.hitl_total > 0)
+            ? (p.hitl_done / p.hitl_total * 100).toFixed(0) : 0;
+        var taskProgress =
+            '<div class="al-task-progress">' +
+                '<div class="al-task-row al-task-verify">' +
+                    '<span class="al-task-name">Verify pseudo</span>' +
+                    '<span class="al-task-counts">' + p.verify_done + ' / ' + p.verify_total + '</span>' +
+                    '<span class="al-task-pct">' + verifyPct + '%</span>' +
+                '</div>' +
+                '<div class="al-task-row al-task-hitl">' +
+                    '<span class="al-task-name">Label HITL</span>' +
+                    '<span class="al-task-counts">' + p.hitl_done + ' / ' + p.hitl_total + '</span>' +
+                    '<span class="al-task-pct">' + hitlPct + '%</span>' +
+                '</div>' +
+                '<div class="al-task-row al-task-total">' +
+                    '<span class="al-task-name">Total</span>' +
+                    '<span class="al-task-counts">' + p.annotated_count + ' / ' + (p.verify_total + p.hitl_total) + '</span>' +
+                    '<span class="al-task-pct">' + pct + '%</span>' +
+                '</div>' +
+            '</div>';
+
         var html =
             '<div class="al-task-banner" style="background:' + taskColor + '">' +
                 taskLabel +
@@ -379,19 +415,12 @@ export class Renderer {
                     '<span class="al-split">' + escapeHtml(p.split) + '</span>' +
                 '</div>' +
                 modelBox +
+                clusterInfo +
                 '<div class="al-image-container">' +
                     '<img class="al-patch-image" src="' + imgSrc + '" alt="Patch">' +
                     '<div class="al-image-counter">' + (p.index + 1) + ' / ' + p.total + '</div>' +
                 '</div>' +
-                '<div class="al-progress-container">' +
-                    '<div class="al-progress-bar-bg">' +
-                        '<div class="al-progress-bar-fill" style="width:' + pct + '%"></div>' +
-                    '</div>' +
-                    '<div class="al-progress-stats">' +
-                        '<span>' + p.annotated_count + ' annotated</span>' +
-                        '<span>' + pct + '%</span>' +
-                    '</div>' +
-                '</div>' +
+                taskProgress +
                 '<div class="al-button-row">' +
                     '<button class="btn ' + action1Class + '" data-al-action="' + action1Value + '">' +
                         action1Label +
@@ -463,6 +492,35 @@ export class Renderer {
         }
         setTimeout(() => {
             this.flash.classList.remove('show');
+        }, duration);
+    }
+
+    // ── Toast notifications (non-blocking, stackable) ──
+
+    showToast(message, type, duration) {
+        if (!this.toastContainer) return;
+        type = type || 'info';
+        duration = duration || 4000;
+        // Cap visible toasts at 3 — drop oldest if over
+        var visible = this.toastContainer.querySelectorAll('.toast.show').length;
+        if (visible >= 3) {
+            var oldest = this.toastContainer.querySelector('.toast.show');
+            if (oldest) {
+                oldest.classList.remove('show');
+                var self = this;
+                setTimeout(function() { oldest.remove(); }, 250);
+            }
+        }
+        var toast = document.createElement('div');
+        toast.className = 'toast ' + type;
+        toast.textContent = message;
+        this.toastContainer.appendChild(toast);
+        // Trigger reflow then add 'show' for transition
+        toast.offsetHeight; // eslint-disable-line no-unused-expressions
+        toast.classList.add('show');
+        setTimeout(function() {
+            toast.classList.remove('show');
+            setTimeout(function() { toast.remove(); }, 250);
         }, duration);
     }
 }

@@ -392,6 +392,27 @@ def init_al_session(name: str, round_n: int) -> dict:
 
     remaining = [p for p in patches if p["patch_path"] not in annotated]
 
+    # Per-task-type totals (from original full list, not remaining)
+    task_type_total = {"verify_pseudo": 0, "label_hitl": 0}
+    for p in patches:
+        tt = p.get("task_type")
+        if tt in task_type_total:
+            task_type_total[tt] += 1
+
+    # Per-task-type already-annotated counts (rebuilt from CSV on resume)
+    task_type_annotated = {"verify_pseudo": 0, "label_hitl": 0}
+    if csv_path.exists():
+        try:
+            with open(csv_path, "r", encoding="utf-8") as f:
+                for row in csv.DictReader(f):
+                    if row.get("is_skipped") == "True":
+                        continue
+                    tt = row.get("task_type")
+                    if tt in task_type_annotated:
+                        task_type_annotated[tt] += 1
+        except Exception:
+            pass
+
     sessions[name] = {
         "mode": "al",
         "round": round_n,
@@ -405,6 +426,8 @@ def init_al_session(name: str, round_n: int) -> dict:
         "csv_path": csv_path,
         "total_original": len(patches),
         "annotated_count": len(annotated),
+        "task_type_total": task_type_total,
+        "task_type_annotated": task_type_annotated,
         "annotation_counter": 0,
     }
     return sessions[name]
@@ -660,6 +683,8 @@ async def api_patch_current_al():
         return {"done": True, "message": "All AL patches processed!"}
 
     patch = session["patch_list"][session["current_index"]]
+    ttc = session.get("task_type_total", {"verify_pseudo": 0, "label_hitl": 0})
+    tta = session.get("task_type_annotated", {"verify_pseudo": 0, "label_hitl": 0})
     return {
         "done": False,
         "patch_path": patch["patch_path"],
@@ -669,9 +694,15 @@ async def api_patch_current_al():
         "model_prediction": patch.get("model_prediction"),
         "model_confidence": patch.get("model_confidence"),
         "model_margin": patch.get("model_margin"),
+        "cluster_id": patch.get("cluster_id"),
+        "cluster_margin": patch.get("margin"),
         "index": session["current_index"],
         "total": len(session["patch_list"]),
         "annotated_count": session["annotated_count"],
+        "verify_total": ttc.get("verify_pseudo", 0),
+        "verify_done": tta.get("verify_pseudo", 0),
+        "hitl_total": ttc.get("label_hitl", 0),
+        "hitl_done": tta.get("label_hitl", 0),
     }
 
 
@@ -723,6 +754,11 @@ async def api_annotate_al(req: ALAnnotateRequest):
     session["annotation_counter"] += 1
     session["current_index"] += 1
 
+    tt = patch.get("task_type")
+    tta = session.get("task_type_annotated", {})
+    if tt in tta:
+        tta[tt] += 1
+
     if session["annotation_counter"] >= BACKUP_INTERVAL:
         backup_csv(session["csv_path"])
         session["annotation_counter"] = 0
@@ -731,6 +767,8 @@ async def api_annotate_al(req: ALAnnotateRequest):
         return {"done": True, "message": "All AL patches processed!"}
 
     next_patch = session["patch_list"][session["current_index"]]
+    ttc = session.get("task_type_total", {"verify_pseudo": 0, "label_hitl": 0})
+    tta = session.get("task_type_annotated", {"verify_pseudo": 0, "label_hitl": 0})
     return {
         "done": False,
         "patch_path": next_patch["patch_path"],
@@ -740,9 +778,15 @@ async def api_annotate_al(req: ALAnnotateRequest):
         "model_prediction": next_patch.get("model_prediction"),
         "model_confidence": next_patch.get("model_confidence"),
         "model_margin": next_patch.get("model_margin"),
+        "cluster_id": next_patch.get("cluster_id"),
+        "cluster_margin": next_patch.get("margin"),
         "index": session["current_index"],
         "total": len(session["patch_list"]),
         "annotated_count": session["annotated_count"],
+        "verify_total": ttc.get("verify_pseudo", 0),
+        "verify_done": tta.get("verify_pseudo", 0),
+        "hitl_total": ttc.get("label_hitl", 0),
+        "hitl_done": tta.get("label_hitl", 0),
     }
 
 
@@ -783,6 +827,8 @@ async def api_skip_al(req: SkipRequest):
         return {"done": True, "message": "All AL patches processed!"}
 
     next_patch = session["patch_list"][session["current_index"]]
+    ttc = session.get("task_type_total", {"verify_pseudo": 0, "label_hitl": 0})
+    tta = session.get("task_type_annotated", {"verify_pseudo": 0, "label_hitl": 0})
     return {
         "done": False,
         "patch_path": next_patch["patch_path"],
@@ -792,9 +838,15 @@ async def api_skip_al(req: SkipRequest):
         "model_prediction": next_patch.get("model_prediction"),
         "model_confidence": next_patch.get("model_confidence"),
         "model_margin": next_patch.get("model_margin"),
+        "cluster_id": next_patch.get("cluster_id"),
+        "cluster_margin": next_patch.get("margin"),
         "index": session["current_index"],
         "total": len(session["patch_list"]),
         "annotated_count": session["annotated_count"],
+        "verify_total": ttc.get("verify_pseudo", 0),
+        "verify_done": tta.get("verify_pseudo", 0),
+        "hitl_total": ttc.get("label_hitl", 0),
+        "hitl_done": tta.get("label_hitl", 0),
     }
 
 

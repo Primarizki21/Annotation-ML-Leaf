@@ -92,6 +92,7 @@ export class App {
             })
             .catch((err) => {
                 console.error('Init error:', err);
+                this.renderer.showToast('Gagal memuat status. Periksa koneksi.', 'error', 5000);
                 this.setupModal.classList.remove('hidden');
             });
     }
@@ -154,9 +155,10 @@ export class App {
                 .then(() => {
                     window.location.reload();
                 })
-                .catch((err) => {
-                    console.error('Switch to normal failed:', err);
-                });
+            .catch((err) => {
+                console.error('Switch to normal failed:', err);
+                this.renderer.showToast('Gagal kembali ke mode normal.', 'error');
+            });
         } else {
             // Switch to review mode
             this.api.setupReview(name)
@@ -205,6 +207,7 @@ export class App {
                 })
                 .catch((err) => {
                     console.error('Load AL error:', err);
+                    this.renderer.showToast('Gagal memuat patch AL.', 'error');
                 });
             return;
         }
@@ -221,6 +224,7 @@ export class App {
             })
             .catch((err) => {
                 console.error('Load error:', err);
+                this.renderer.showToast('Gagal memuat patch.', 'error');
             });
     }
 
@@ -251,6 +255,7 @@ export class App {
             } catch (err) {
                 console.error('Leaf context error:', err);
                 this.renderer.handleLeafContextError();
+                this.renderer.showToast('Gagal memuat konteks daun.', 'warning');
             }
         }
     }
@@ -287,6 +292,7 @@ export class App {
                 .catch((err) => {
                     this.state.loading = false;
                     console.error('AL annotate error:', err);
+                    this.renderer.showToast('Gagal menyimpan anotasi AL.', 'error');
                 });
             return;
         }
@@ -315,6 +321,7 @@ export class App {
             .catch((err) => {
                 this.state.loading = false;
                 console.error('Annotate error:', err);
+                this.renderer.showToast('Gagal menyimpan anotasi.', 'error');
             });
     }
 
@@ -353,6 +360,7 @@ export class App {
         .catch((err) => {
             this.state.loading = false;
             console.error('Skip error:', err);
+            this.renderer.showToast('Gagal skip patch.', 'error');
         });
     }
 
@@ -372,6 +380,7 @@ export class App {
             .catch((err) => {
                 this.state.loading = false;
                 console.error('Undo error:', err);
+                this.renderer.showToast('Gagal undo.', 'error');
             });
     }
 
@@ -388,6 +397,7 @@ export class App {
             .catch((err) => {
                 this.state.loading = false;
                 console.error('Jump error:', err);
+                this.renderer.showToast('Gagal loncat ke patch.', 'error');
             });
     }
 

@@ -463,6 +463,41 @@ body {
 .flash.skip { background: var(--skip); color: white; }
 .flash.info { background: #f39c12; color: #1a1a2e; }
 
+/* Toast notifications (non-blocking, stackable) */
+.toast-container {
+    position: fixed;
+    top: 80px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 200;
+    pointer-events: none;
+    max-width: 360px;
+}
+.toast {
+    background: var(--surface);
+    color: var(--text);
+    border-left: 4px solid var(--accent);
+    border-radius: 6px;
+    padding: 12px 16px;
+    font-size: 13px;
+    line-height: 1.4;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    pointer-events: auto;
+    opacity: 0;
+    transform: translateX(20px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.toast.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+.toast.success { border-left-color: var(--healthy); }
+.toast.info    { border-left-color: var(--accent); }
+.toast.warning { border-left-color: #f39c12; }
+.toast.error   { border-left-color: var(--unhealthy); }
+
 /* =========================================================================
    Active Learning mode (mode === "al")
    ========================================================================= */
@@ -546,6 +581,68 @@ body {
     color: #bdc3c7;
     font-family: monospace;
 }
+
+/* Cluster info box (label_hitl only) */
+.cluster-info-box {
+    width: 100%;
+    background: #2c1f0a;
+    border: 1px solid #e67e22;
+    border-radius: 6px;
+    padding: 8px 14px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    font-size: 12px;
+    color: #ecf0f1;
+}
+.cluster-info-label {
+    font-weight: 600;
+    color: #f39c12;
+    font-family: monospace;
+}
+.cluster-info-meta {
+    color: #bdc3c7;
+    font-family: monospace;
+}
+
+/* Per-task-type progress (2.1) */
+.al-task-progress {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: #bdc3c7;
+}
+.al-task-row {
+    display: grid;
+    grid-template-columns: 1fr auto 50px;
+    gap: 12px;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+.al-task-name {
+    font-weight: 500;
+}
+.al-task-counts {
+    font-family: monospace;
+    color: #ecf0f1;
+}
+.al-task-pct {
+    text-align: right;
+    font-family: monospace;
+    color: #95a5a6;
+}
+.al-task-verify { background: rgba(52, 152, 219, 0.12); }
+.al-task-hitl   { background: rgba(230, 126, 34, 0.12); }
+.al-task-total  {
+    border-top: 1px solid #34495e;
+    margin-top: 2px;
+    padding-top: 6px;
+    background: transparent;
+}
+.al-task-total .al-task-name { color: #ecf0f1; font-weight: 600; }
 
 .al-image-container {
     position: relative;
