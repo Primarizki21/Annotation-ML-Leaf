@@ -3,43 +3,45 @@
 predict_unlabeled_patches.py
 
 Loads a trained EfficientNet-B0 checkpoint and predicts labels for all
-patches in dataset_patches/ that are NOT part of the consensus set.
+unlabeled (needs_annotation/) patches not in the consensus set.
+Healthy patches are collected into the output CSV with hardcoded
+label=0 (healthy), confidence=1.0, needs_review=False (no GPU spent).
 
 Output:
-  predictions/master_predictions.csv   — per-patch predictions
+  predictions/master_predictions.csv   — per-patch predictions (all patches)
   predictions/plots/                    — distribution visualizations
 """
 
 import argparse
-import json
 import warnings
-from collections import defaultdict
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
-import torch.nn as nn
-from PIL import Image
-from torch.utils.data import DataLoader, Dataset
-from torchvision.models import efficientnet_b0
-from torchvision.transforms import v2
+from torch.utils.data import DataLoader
 from tqdm import tqdm
+
+from inference_utils import (
+    BASE_DIR,
+    CHUNK_SIZE,
+    DEFAULT_CONSENSUS_CSV,
+    DEFAULT_MODEL,
+    DEFAULT_PATCHES_DIR,
+    PREDICTIONS_DIR,
+    InferenceDataset,
+    build_consensus_set,
+    build_transform,
+    collect_patch_paths,
+    load_model,
+    write_csv_in_chunks,
+)
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
 plt.rcParams["figure.dpi"] = 500
 plt.rcParams["savefig.bbox"] = "tight"
-
-BASE_DIR = Path(__file__).resolve().parent
-DEFAULT_MODEL = BASE_DIR / "models" / "efficientnet_b0_consensus" / "efficientnet_b0_consensus.pt"
-DEFAULT_CONSENSUS_CSV = BASE_DIR / "consensus_review_master.csv"
-DEFAULT_CONSENSUS_DIR = BASE_DIR / "dataset_consensus_only"
-DEFAULT_PATCHES_DIR = BASE_DIR / "dataset_patches"
-PREDICTIONS_DIR = BASE_DIR / "predictions"
-
-CHUNK_SIZE = 50_000
 
 
 def parse_args():
@@ -47,104 +49,11 @@ def parse_args():
     parser.add_argument("--model", type=Path, default=DEFAULT_MODEL)
     parser.add_argument("--patches-dir", type=Path, default=DEFAULT_PATCHES_DIR)
     parser.add_argument("--consensus-csv", type=Path, default=DEFAULT_CONSENSUS_CSV)
-    parser.add_argument("--consensus-dir", type=Path, default=DEFAULT_CONSENSUS_DIR)
     parser.add_argument("--output", type=Path, default=PREDICTIONS_DIR / "master_predictions.csv")
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--confidence-threshold", type=float, default=0.9)
     parser.add_argument("--device", type=str, default="cuda")
     return parser.parse_args()
-
-
-def build_consensus_set(consensus_csv, consensus_dir):
-    df = pd.read_csv(consensus_csv)
-    paths = set(df["patch_path"].tolist())
-    return paths
-
-
-def collect_patch_paths(patches_dir, consensus_set):
-    results = {
-        "train_healthy": [], "train_unlabeled": [],
-        "test_healthy": [], "test_unlabeled": [],
-    }
-
-    for split in ["train", "test"]:
-        split_dir = patches_dir / split
-        if not split_dir.exists():
-            continue
-
-        for subdir_name, key_label in [("healthy", "auto_healthy"), ("needs_annotation", "unlabeled")]:
-            sub_dir = split_dir / subdir_name
-            if not sub_dir.exists():
-                continue
-
-            for img in sorted(sub_dir.rglob("*.jpg")):
-                rel_path = str(img.relative_to(patches_dir))
-                class_name = img.parent.name
-
-                if subdir_name == "healthy":
-                    results[f"{split}_healthy"].append({
-                        "abs_path": str(img),
-                        "rel_path": rel_path, "class_name": class_name,
-                        "split": split, "agreement_level": "auto_healthy",
-                        "is_consensus": False,
-                    })
-                else:
-                    if rel_path in consensus_set:
-                        continue
-                    results[f"{split}_unlabeled"].append({
-                        "abs_path": str(img),
-                        "rel_path": rel_path, "class_name": class_name,
-                        "split": split, "agreement_level": "unlabeled",
-                        "is_consensus": False,
-                    })
-
-    return (
-        results["train_healthy"], results["train_unlabeled"],
-        results["test_healthy"], results["test_unlabeled"],
-    )
-
-
-def build_transform():
-    imagenet_mean = [0.485, 0.456, 0.406]
-    imagenet_std = [0.229, 0.224, 0.225]
-
-    return v2.Compose([
-        v2.Resize((224, 224)),
-        v2.ToImage(),
-        v2.ToDtype(torch.float32, scale=True),
-        v2.Normalize(mean=imagenet_mean, std=imagenet_std),
-    ])
-
-
-class InferenceDataset(Dataset):
-    def __init__(self, path_entries, transform):
-        self.entries = path_entries
-        self.transform = transform
-
-    def __len__(self):
-        return len(self.entries)
-
-    def __getitem__(self, idx):
-        img_path = self.entries[idx]["abs_path"]
-        image = Image.open(img_path).convert("RGB")
-        if self.transform:
-            image = self.transform(image)
-        return image, idx
-
-
-def load_model(checkpoint_path, device):
-    model = efficientnet_b0(weights=None)
-    model.classifier = nn.Sequential(
-        nn.Dropout(p=0.2, inplace=True),
-        nn.Linear(model.classifier[1].in_features, 2),
-    )
-
-    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=True)
-    state_dict = checkpoint["model_state_dict"]
-    model.load_state_dict(state_dict)
-    model = model.to(device)
-    model.eval()
-    return model
 
 
 @torch.no_grad()
@@ -162,16 +71,6 @@ def run_inference(model, loader, device):
         all_confs.extend(confs.cpu().numpy())
 
     return np.array(all_preds), np.array(all_confs)
-
-
-def write_csv_in_chunks(output_path, headers, data_rows):
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    write_header = not output_path.exists()
-    df_chunk = pd.DataFrame(data_rows, columns=headers)
-    df_chunk.to_csv(output_path, mode="a", header=write_header, index=False)
-
-    return len(data_rows)
 
 
 def plot_confidence_distribution(df, output_dir, threshold):
@@ -313,7 +212,7 @@ def main():
         args.output.unlink()
 
     print("Building consensus set...")
-    consensus_set = build_consensus_set(args.consensus_csv, args.consensus_dir)
+    consensus_set = build_consensus_set(args.consensus_csv)
     print(f"  Consensus patches: {len(consensus_set):,}")
 
     print("Scanning dataset_patches directory...")
@@ -327,13 +226,16 @@ def main():
         "test_unlabeled": test_unlabeled,
     }
     all_entries = train_healthy + train_unlabeled + test_healthy + test_unlabeled
+    predict_entries = train_unlabeled + test_unlabeled
     total_patches = len(all_entries)
-    print(f"  Total patches to predict: {total_patches:,}")
+    n_to_predict = len(predict_entries)
+    print(f"  Total patches collected: {total_patches:,}")
+    print(f"  Patches to predict (unlabeled): {n_to_predict:,}")
     for key, entries in label_map.items():
         print(f"    {key}: {len(entries):,}")
 
-    if total_patches == 0:
-        print("No patches to predict. Exiting.")
+    if n_to_predict == 0:
+        print("No unlabeled patches to predict. Exiting.")
         return
 
     print("\nLoading model...")
@@ -342,10 +244,23 @@ def main():
     print(f"  Model loaded: {args.model.name} ({n_params / 1e6:.1f}M params)")
 
     transform = build_transform()
-    ds = InferenceDataset(all_entries, transform)
+    ds = InferenceDataset(predict_entries, transform)
     loader = DataLoader(ds, batch_size=args.batch_size, shuffle=False, num_workers=0)
 
     pred_labels, confidences = run_inference(model, loader, device)
+
+    pred_labels = (
+        [0] * len(train_healthy)
+        + pred_labels[:len(train_unlabeled)].tolist()
+        + [0] * len(test_healthy)
+        + pred_labels[len(train_unlabeled):].tolist()
+    )
+    confidences = (
+        [1.0] * len(train_healthy)
+        + confidences[:len(train_unlabeled)].tolist()
+        + [1.0] * len(test_healthy)
+        + confidences[len(train_unlabeled):].tolist()
+    )
 
     csv_headers = [
         "patch_path", "class_name", "split", "agreement_level",

@@ -21,7 +21,14 @@ annotations_master.csv
 models/
 docs/
 consensus_review_master.csv
-fleiss_kappa_per_class.png
+consensus_round1_master.csv
+output_fig/
+output_data/
+
+# Active learning artifacts (too large for git, regenerable)
+predictions/master_predictions_round*.csv
+predictions/embeddings_round*.npy
+predictions/plots/
 
 # All folder containing dataset_
 dataset_*/ 
@@ -38,6 +45,7 @@ instruction.md
 new-feature.md
 instruksi_consensus.md
 calibration_phase.md
+active_learning_int.md
 
 # Compressed Files
 *.zip

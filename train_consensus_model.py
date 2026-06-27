@@ -96,6 +96,13 @@ def parse_args():
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--val-split", type=float, default=0.2)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--use-all-rows", action="store_true",
+                        help="Skip the 4/5+5/5 agreement filter. "
+                             "Use for active learning rounds where "
+                             "pseudo-labels and HITL labels coexist.")
+    parser.add_argument("--init-checkpoint", type=Path, default=None,
+                        help="Initialize model from this checkpoint instead "
+                             "of ImageNet (for active learning fine-tuning).")
     return parser.parse_args()
 
 
@@ -142,7 +149,7 @@ def train_one_epoch(model, loader, criterion, optimizer, scaler, device):
         labels = labels.to(device)
 
         optimizer.zero_grad()
-        with autocast("cuda"):
+        with autocast(device.type):
             outputs = model(images)
             loss = criterion(outputs, labels)
 
@@ -173,7 +180,7 @@ def validate(model, loader, criterion, device):
             images = images.to(device)
             labels = labels.to(device)
 
-            with autocast("cuda"):
+            with autocast(device.type):
                 outputs = model(images)
                 loss = criterion(outputs, labels)
 
@@ -341,8 +348,11 @@ def main():
         print(f"VRAM: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB")
 
     df = pd.read_csv(args.consensus_csv)
-    df = df[df["agreement_level"].isin(["4/5", "5/5"])].copy()
-    print(f"Consensus patches (5/5 + 4/5): {len(df):,}")
+    if args.use_all_rows:
+        print(f"Using all rows (active learning mode): {len(df):,}")
+    else:
+        df = df[df["agreement_level"].isin(["4/5", "5/5"])].copy()
+        print(f"Consensus patches (5/5 + 4/5): {len(df):,}")
 
     label_dist = df["suggested_numeric_label"].value_counts().to_dict()
     print(f"Label distribution: healthy={label_dist.get(0, 0):,} unhealthy={label_dist.get(1, 0):,}")
@@ -350,7 +360,7 @@ def main():
     train_df, val_df = train_test_split(
         df,
         test_size=args.val_split,
-        stratify=df["class_name"],
+        stratify=df["suggested_numeric_label"],
         random_state=args.seed,
     )
     print(f"Train: {len(train_df):,}  Val: {len(val_df):,}")
@@ -373,12 +383,31 @@ def main():
         pin_memory=True,
     )
 
-    weights = EfficientNet_B0_Weights.IMAGENET1K_V1
-    model = efficientnet_b0(weights=weights)
-    model.classifier = nn.Sequential(
-        nn.Dropout(p=0.2, inplace=True),
-        nn.Linear(model.classifier[1].in_features, 2),
-    )
+    if args.init_checkpoint is not None:
+        if not args.init_checkpoint.exists():
+            raise FileNotFoundError(
+                f"--init-checkpoint not found: {args.init_checkpoint}"
+            )
+        print(f"Loading init checkpoint: {args.init_checkpoint}")
+        ckpt = torch.load(args.init_checkpoint, map_location=device,
+                          weights_only=True)
+        # The init checkpoint may have been saved with the trained classifier
+        # (Dropout + Linear(1280, 2)), so we can load it directly.
+        model = efficientnet_b0(weights=None)
+        model.classifier = nn.Sequential(
+            nn.Dropout(p=0.2, inplace=True),
+            nn.Linear(model.classifier[1].in_features, 2),
+        )
+        model.load_state_dict(ckpt["model_state_dict"])
+        print(f"  Loaded state dict from epoch {ckpt.get('epoch', '?')}, "
+              f"val_acc={ckpt.get('val_accuracy', '?')}")
+    else:
+        weights = EfficientNet_B0_Weights.IMAGENET1K_V1
+        model = efficientnet_b0(weights=weights)
+        model.classifier = nn.Sequential(
+            nn.Dropout(p=0.2, inplace=True),
+            nn.Linear(model.classifier[1].in_features, 2),
+        )
     model = model.to(device)
 
     class_weights = compute_class_weights(train_df["suggested_numeric_label"].values)
@@ -387,7 +416,7 @@ def main():
 
     optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs)
-    scaler = GradScaler("cuda")
+    scaler = GradScaler(device.type)
 
     best_val_acc = 0.0
     patience_counter = 0
