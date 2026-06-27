@@ -399,8 +399,15 @@ def init_al_session(name: str, round_n: int) -> dict:
         if tt in task_type_total:
             task_type_total[tt] += 1
 
+    # Per-class totals (from original full list)
+    class_totals: dict[str, int] = {}
+    for p in patches:
+        cn = p.get("class_name", "")
+        class_totals[cn] = class_totals.get(cn, 0) + 1
+
     # Per-task-type already-annotated counts (rebuilt from CSV on resume)
     task_type_annotated = {"verify_pseudo": 0, "label_hitl": 0}
+    class_annotated: dict[str, int] = {}
     if csv_path.exists():
         try:
             with open(csv_path, "r", encoding="utf-8") as f:
@@ -410,6 +417,8 @@ def init_al_session(name: str, round_n: int) -> dict:
                     tt = row.get("task_type")
                     if tt in task_type_annotated:
                         task_type_annotated[tt] += 1
+                    cn = row.get("class_name", "")
+                    class_annotated[cn] = class_annotated.get(cn, 0) + 1
         except Exception:
             pass
 
@@ -428,6 +437,8 @@ def init_al_session(name: str, round_n: int) -> dict:
         "annotated_count": len(annotated),
         "task_type_total": task_type_total,
         "task_type_annotated": task_type_annotated,
+        "class_totals": class_totals,
+        "class_annotated": class_annotated,
         "annotation_counter": 0,
     }
     return sessions[name]
@@ -685,6 +696,9 @@ async def api_patch_current_al():
     patch = session["patch_list"][session["current_index"]]
     ttc = session.get("task_type_total", {"verify_pseudo": 0, "label_hitl": 0})
     tta = session.get("task_type_annotated", {"verify_pseudo": 0, "label_hitl": 0})
+    cn = patch.get("class_name", "")
+    class_totals = session.get("class_totals", {})
+    class_annotated = session.get("class_annotated", {})
     return {
         "done": False,
         "patch_path": patch["patch_path"],
@@ -703,6 +717,8 @@ async def api_patch_current_al():
         "verify_done": tta.get("verify_pseudo", 0),
         "hitl_total": ttc.get("label_hitl", 0),
         "hitl_done": tta.get("label_hitl", 0),
+        "class_total": class_totals.get(cn, 0),
+        "class_done": class_annotated.get(cn, 0),
     }
 
 
@@ -758,6 +774,9 @@ async def api_annotate_al(req: ALAnnotateRequest):
     tta = session.get("task_type_annotated", {})
     if tt in tta:
         tta[tt] += 1
+    cn = patch.get("class_name", "")
+    ca = session.get("class_annotated", {})
+    ca[cn] = ca.get(cn, 0) + 1
 
     if session["annotation_counter"] >= BACKUP_INTERVAL:
         backup_csv(session["csv_path"])
@@ -769,6 +788,9 @@ async def api_annotate_al(req: ALAnnotateRequest):
     next_patch = session["patch_list"][session["current_index"]]
     ttc = session.get("task_type_total", {"verify_pseudo": 0, "label_hitl": 0})
     tta = session.get("task_type_annotated", {"verify_pseudo": 0, "label_hitl": 0})
+    ct = session.get("class_totals", {})
+    ca = session.get("class_annotated", {})
+    next_cn = next_patch.get("class_name", "")
     return {
         "done": False,
         "patch_path": next_patch["patch_path"],
@@ -787,6 +809,8 @@ async def api_annotate_al(req: ALAnnotateRequest):
         "verify_done": tta.get("verify_pseudo", 0),
         "hitl_total": ttc.get("label_hitl", 0),
         "hitl_done": tta.get("label_hitl", 0),
+        "class_total": ct.get(next_cn, 0),
+        "class_done": ca.get(next_cn, 0),
     }
 
 
@@ -829,6 +853,9 @@ async def api_skip_al(req: SkipRequest):
     next_patch = session["patch_list"][session["current_index"]]
     ttc = session.get("task_type_total", {"verify_pseudo": 0, "label_hitl": 0})
     tta = session.get("task_type_annotated", {"verify_pseudo": 0, "label_hitl": 0})
+    ct = session.get("class_totals", {})
+    ca = session.get("class_annotated", {})
+    next_cn = next_patch.get("class_name", "")
     return {
         "done": False,
         "patch_path": next_patch["patch_path"],
@@ -847,6 +874,8 @@ async def api_skip_al(req: SkipRequest):
         "verify_done": tta.get("verify_pseudo", 0),
         "hitl_total": ttc.get("label_hitl", 0),
         "hitl_done": tta.get("label_hitl", 0),
+        "class_total": ct.get(next_cn, 0),
+        "class_done": ca.get(next_cn, 0),
     }
 
 
@@ -1168,6 +1197,47 @@ async def api_dashboard_data():
     grand_done = sum(c["done"] for c in class_list)
     grand_pct = round(grand_done / grand_total * 100, 1) if grand_total > 0 else 0
 
+    # ── Active Learning rounds (Phase 3.2) ──
+    al_rounds = []
+    if PREDICTIONS_DIR.exists():
+        for al_path in sorted(PREDICTIONS_DIR.glob("al_assignments_round*.json")):
+            try:
+                with open(al_path, "r", encoding="utf-8") as f:
+                    al = json.load(f)
+            except Exception:
+                continue
+            round_n = al.get("round")
+            if round_n is None:
+                continue
+            al_ann_stats = []
+            for ann_name in al.get("annotators", []):
+                ann_csv = ANNOTATIONS_DIR / f"annotations_{ann_name}_al_round{round_n}.csv"
+                assigned = len(al["patches"].get(ann_name, []))
+                done_count = 0
+                skipped_count = 0
+                if ann_csv.exists():
+                    try:
+                        with open(ann_csv, "r", encoding="utf-8") as f:
+                            for row in csv.DictReader(f):
+                                if row.get("is_skipped") == "True":
+                                    skipped_count += 1
+                                else:
+                                    done_count += 1
+                    except Exception:
+                        pass
+                pct = round(done_count / assigned * 100, 1) if assigned > 0 else 0
+                al_ann_stats.append({
+                    "name": ann_name,
+                    "assigned": assigned,
+                    "done": done_count,
+                    "skipped": skipped_count,
+                    "percent": pct,
+                })
+            al_rounds.append({
+                "round": round_n,
+                "annotators": al_ann_stats,
+            })
+
     return {
         "annotators": annotator_stats,
         "classes": class_list,
@@ -1178,6 +1248,7 @@ async def api_dashboard_data():
             "percent": grand_pct,
         },
         "labels": label_counts,
+        "al_rounds": al_rounds,
     }
 
 

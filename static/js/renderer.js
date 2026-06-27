@@ -408,6 +408,13 @@ export class Renderer {
         // Indonesian task instructions
         var instructions = this._buildALInstructions(p, action1Label, action2Label);
 
+        // Per-class progress (3.1)
+        var classPct = (p.class_total > 0)
+            ? (p.class_done / p.class_total * 100).toFixed(0) : 0;
+        var classProgress = (p.class_total > 0)
+            ? '<span class="al-class-progress">' + p.class_done + ' / ' + p.class_total + ' di kelas ini (' + classPct + '%)</span>'
+            : '';
+
         var html =
             '<div class="al-task-banner" style="background:' + taskColor + '">' +
                 taskLabel +
@@ -416,6 +423,7 @@ export class Renderer {
             '<div class="al-class-info">' +
                 '<span class="al-class-name">' + escapeHtml(p.class_name) + '</span>' +
                 '<span class="al-split">' + escapeHtml(p.split) + '</span>' +
+                classProgress +
             '</div>' +
             modelBox +
             clusterInfo +
@@ -590,6 +598,13 @@ export class Renderer {
 
         var instructions = this._buildALInstructions(p, action1Label, action2Label);
 
+        // Per-class progress (3.1)
+        var classPct = (p.class_total > 0)
+            ? (p.class_done / p.class_total * 100).toFixed(0) : 0;
+        var classProgress = (p.class_total > 0)
+            ? '<span class="al-class-progress">' + p.class_done + ' / ' + p.class_total + ' di kelas ini (' + classPct + '%)</span>'
+            : '';
+
         return '<div class="al-task-banner" style="background:' + taskColor + '">' +
                 taskLabel +
             '</div>' +
@@ -597,6 +612,7 @@ export class Renderer {
             '<div class="al-class-info">' +
                 '<span class="al-class-name">' + escapeHtml(p.class_name) + '</span>' +
                 '<span class="al-split">' + escapeHtml(p.split) + '</span>' +
+                classProgress +
             '</div>' +
             modelBox +
             clusterInfo +
