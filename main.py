@@ -3,6 +3,39 @@ main.py - FastAPI Image Patch Annotation App
 
 A local web application for image patch annotation using FastAPI.
 Used by annotators to label plant leaf patches as "healthy" or "unhealthy".
+
+============================================================================
+USAGE — Three modes
+============================================================================
+The annotator_config.json has a "mode" field that selects one of three modes.
+
+Mode 1: Normal annotation (initial ~34k patches)
+  annotator_config.json: {"name": "Oki", "mode": "normal"}
+  Reads:  assignments_consensus.json
+  Writes: annotations/annotations_{name}.csv
+  Start: python main.py -> open http://localhost:8000 -> "Start Annotating"
+
+Mode 2: Review disputed (verify 3/5 patches)
+  annotator_config.json: {"name": "Oki", "mode": "review"}
+  Reads:  consensus_review_master.csv (filters needs_discussion=True)
+  Writes: annotations/annotations_{name}_review.csv
+  Or: click "Review Disputed" button in the UI
+
+Mode 3: Active Learning (NEW — verify_pseudo + label_hitl, Round N)
+  annotator_config.json: {"name": "Oki", "mode": "al"}
+  Reads:  predictions/al_assignments_round{N}.json (must exist; run
+            `python active_learning_round.py --phase 2 generate --round N` first)
+  Writes: annotations/annotations_{name}_al_round{N}.csv
+  After all 5 annotators finish, run:
+            `python active_learning_round.py --phase 2 verify --round N`
+
+============================================================================
+SWITCHING MODES
+============================================================================
+Edit annotator_config.json manually, OR use the API:
+  POST /api/setup           -> mode = "normal"
+  POST /api/setup-review    -> mode = "review"
+  POST /api/setup-al        -> mode = "al" (with round in body)
 """
 
 import csv
@@ -63,6 +96,7 @@ CONFIG_PATH = BASE_DIR / "annotator_config.json"
 # ASSIGNMENTS_PATH = BASE_DIR / "assignments.json" # original json
 ASSIGNMENTS_PATH = BASE_DIR / "assignments_consensus.json"
 CONSENSUS_REVIEW_CSV = BASE_DIR / "consensus_review_master.csv"
+PREDICTIONS_DIR = BASE_DIR / "predictions"  # active learning artifacts (AL mode)
 
 # Ensure annotations directory exists
 ANNOTATIONS_DIR.mkdir(exist_ok=True)
@@ -155,6 +189,24 @@ class AnnotateRequest(BaseModel):
 
 class SkipRequest(BaseModel):
     patch_path: str
+
+
+# Active learning mode (Phase 2/3 of active_learning_round.py)
+AL_ASSIGNMENTS_DIR = PREDICTIONS_DIR
+AL_DEFAULT_ROUND = 2
+AL_MAX_HISTORY = 20
+
+
+class ALSetupRequest(BaseModel):
+    name: str
+    round: int = AL_DEFAULT_ROUND
+
+
+class ALAnnotateRequest(BaseModel):
+    patch_path: str
+    task_type: str             # "verify_pseudo" or "label_hitl"
+    label: str = ""            # for label_hitl: "healthy" or "unhealthy"
+    is_correct: bool | None = None  # for verify_pseudo
 
 
 # --- Helper functions ---
@@ -303,6 +355,74 @@ def init_review_session(name: str) -> dict:
     return session
 
 
+def init_al_session(name: str, round_n: int) -> dict:
+    """Initialize a session for active learning mode (verify_pseudo + label_hitl).
+
+    Reads predictions/al_assignments_round{round_n}.json and builds the
+    patch list for this annotator. Resumes from annotations already
+    written to annotations/annotations_{name}_al_round{round_n}.csv.
+    """
+    al_path = AL_ASSIGNMENTS_DIR / f"al_assignments_round{round_n}.json"
+    if not al_path.exists():
+        raise HTTPException(
+            400,
+            f"Assignment file not found: {al_path}\n"
+            f"Run: python active_learning_round.py --phase 2 generate --round {round_n}"
+        )
+    with open(al_path, "r", encoding="utf-8") as f:
+        al = json.load(f)
+    if name not in al.get("patches", {}):
+        raise HTTPException(
+            400,
+            f"Annotator '{name}' not in assignment file. "
+            f"Available: {list(al.get('patches', {}).keys())}"
+        )
+    patches = al["patches"][name]
+
+    csv_path = ANNOTATIONS_DIR / f"annotations_{name}_al_round{round_n}.csv"
+    annotated = set()
+    if csv_path.exists():
+        try:
+            with open(csv_path, "r", encoding="utf-8") as f:
+                for row in csv.DictReader(f):
+                    if row.get("is_skipped") != "True":
+                        annotated.add(row["patch_path"])
+        except Exception:
+            pass
+
+    remaining = [p for p in patches if p["patch_path"] not in annotated]
+
+    sessions[name] = {
+        "mode": "al",
+        "round": round_n,
+        "patch_list": remaining,
+        "path_to_index": {p["patch_path"]: i for i, p in enumerate(remaining)},
+        "current_index": 0,
+        "history": [],
+        "annotated_set": annotated,
+        "skipped_set": set(),
+        "label_map": {},
+        "csv_path": csv_path,
+        "total_original": len(patches),
+        "annotated_count": len(annotated),
+        "annotation_counter": 0,
+    }
+    return sessions[name]
+
+
+def append_al_csv(csv_path: Path, row: dict) -> None:
+    """Append a single row to an AL annotator CSV file."""
+    file_exists = csv_path.exists()
+    with open(csv_path, "a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=[
+            "patch_path", "class_name", "split", "task_type",
+            "label", "is_correct", "annotator", "timestamp", "is_skipped",
+        ])
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(row)
+
+
 def has_disputed_patches() -> bool:
     """Check if consensus review CSV exists with any needs_discussion patches."""
     if not CONSENSUS_REVIEW_CSV.exists():
@@ -396,11 +516,20 @@ async def api_status():
 
     if name not in sessions:
         try:
-            if mode == "review":
+            if mode == "al":
+                init_al_session(name, config.get("round", AL_DEFAULT_ROUND))
+            elif mode == "review":
                 init_review_session(name)
             else:
                 init_session(name)
         except Exception:
+            if mode == "al":
+                # al mode failure -> return to normal
+                save_config(name, mode="normal")
+                return {"setup": False, "name": None, "mode": "al",
+                        "has_disputed": disputed,
+                        "error": "AL assignment file not found. "
+                                 "Run active_learning_round.py --phase 2 generate first."}
             if mode == "review":
                 save_config(name, mode="normal")
                 mode = "normal"
@@ -412,7 +541,7 @@ async def api_status():
                 return {"setup": False, "name": None, "mode": "normal", "has_disputed": disputed}
 
     session = sessions[name]
-    return {
+    resp = {
         "setup": True,
         "name": name,
         "mode": mode,
@@ -420,6 +549,9 @@ async def api_status():
         "total": session["total_original"],
         "annotated": session["annotated_count"],
     }
+    if mode == "al":
+        resp["round"] = session.get("round", AL_DEFAULT_ROUND)
+    return resp
 
 
 @app.post("/api/setup")
@@ -485,6 +617,132 @@ async def api_setup_normal(req: SetupRequest):
         "name": name,
         "total": session["total_original"],
         "annotated": session["annotated_count"],
+    }
+
+
+@app.post("/api/setup-al")
+async def api_setup_al(req: ALSetupRequest):
+    name = req.name.strip()
+    if not name:
+        raise HTTPException(400, "Name cannot be empty")
+
+    session = init_al_session(name, req.round)
+    save_config(name, mode="al")
+    # Also save the round in config for resume
+    config_path = CONFIG_PATH
+    if config_path.exists():
+        with open(config_path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        cfg["round"] = req.round
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2)
+    return {
+        "setup": True,
+        "mode": "al",
+        "round": req.round,
+        "name": name,
+        "total": session["total_original"],
+        "annotated": session["annotated_count"],
+    }
+
+
+@app.get("/api/patch/current-al")
+async def api_patch_current_al():
+    config = load_config()
+    if not config or config.get("mode") != "al":
+        raise HTTPException(400, "AL mode not active")
+    name = config["name"]
+    if name not in sessions:
+        init_al_session(name, config.get("round", AL_DEFAULT_ROUND))
+    session = sessions[name]
+
+    if session["current_index"] >= len(session["patch_list"]):
+        return {"done": True, "message": "All AL patches processed!"}
+
+    patch = session["patch_list"][session["current_index"]]
+    return {
+        "done": False,
+        "patch_path": patch["patch_path"],
+        "class_name": patch["class_name"],
+        "split": patch["split"],
+        "task_type": patch["task_type"],
+        "model_prediction": patch.get("model_prediction"),
+        "model_confidence": patch.get("model_confidence"),
+        "model_margin": patch.get("model_margin"),
+        "index": session["current_index"],
+        "total": len(session["patch_list"]),
+        "annotated_count": session["annotated_count"],
+    }
+
+
+@app.post("/api/annotate-al")
+async def api_annotate_al(req: ALAnnotateRequest):
+    config = load_config()
+    if not config or config.get("mode") != "al":
+        raise HTTPException(400, "AL mode not active")
+    name = config["name"]
+    session = sessions.get(name)
+    if not session:
+        raise HTTPException(400, "Session not found")
+    if session["current_index"] >= len(session["patch_list"]):
+        raise HTTPException(400, "No more AL patches")
+
+    patch = session["patch_list"][session["current_index"]]
+    if patch["patch_path"] != req.patch_path:
+        raise HTTPException(400, "Patch path mismatch")
+
+    if req.task_type == "verify_pseudo":
+        if req.is_correct is None:
+            raise HTTPException(400, "verify_pseudo requires is_correct")
+    elif req.task_type == "label_hitl":
+        if req.label not in ("healthy", "unhealthy"):
+            raise HTTPException(400, "label_hitl requires label in {healthy, unhealthy}")
+    else:
+        raise HTTPException(400, f"Unknown task_type: {req.task_type}")
+
+    now = datetime.now(timezone.utc).isoformat()
+    row = {
+        "patch_path": patch["patch_path"],
+        "class_name": patch["class_name"],
+        "split": patch["split"],
+        "task_type": req.task_type,
+        "label": req.label,
+        "is_correct": str(req.is_correct) if req.is_correct is not None else "",
+        "annotator": name,
+        "timestamp": now,
+        "is_skipped": "False",
+    }
+    append_al_csv(session["csv_path"], row)
+
+    session["history"].append({"patch": patch, "index": session["current_index"], "row": row})
+    if len(session["history"]) > AL_MAX_HISTORY:
+        session["history"].pop(0)
+
+    session["annotated_set"].add(patch["patch_path"])
+    session["annotated_count"] += 1
+    session["annotation_counter"] += 1
+    session["current_index"] += 1
+
+    if session["annotation_counter"] >= BACKUP_INTERVAL:
+        backup_csv(session["csv_path"])
+        session["annotation_counter"] = 0
+
+    if session["current_index"] >= len(session["patch_list"]):
+        return {"done": True, "message": "All AL patches processed!"}
+
+    next_patch = session["patch_list"][session["current_index"]]
+    return {
+        "done": False,
+        "patch_path": next_patch["patch_path"],
+        "class_name": next_patch["class_name"],
+        "split": next_patch["split"],
+        "task_type": next_patch["task_type"],
+        "model_prediction": next_patch.get("model_prediction"),
+        "model_confidence": next_patch.get("model_confidence"),
+        "model_margin": next_patch.get("model_margin"),
+        "index": session["current_index"],
+        "total": len(session["patch_list"]),
+        "annotated_count": session["annotated_count"],
     }
 
 

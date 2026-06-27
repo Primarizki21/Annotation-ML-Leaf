@@ -205,8 +205,9 @@ export class Renderer {
 
                 if (patch.is_current) {
                     c.strokeStyle = '#00d4ff';
-                    c.lineWidth = 3;
-                    c.strokeRect(x + 1, y + 1, cellW - 2, cellH - 2);
+                    c.lineWidth = 1;
+                    c.strokeRect(x, y, cellW, cellH);
+                    // c.strokeRect(x + 1, y +1, cellW - 2, cellH - 2);
                 }
             });
 
@@ -313,6 +314,138 @@ export class Renderer {
         var gridWrap = document.getElementById('gridWrap');
         if (leafWrap) leafWrap.innerHTML = '<div class="loading">Could not load leaf context</div>';
         if (gridWrap) gridWrap.innerHTML = '<div class="loading">Could not load grid</div>';
+    }
+
+    // ── Active Learning mode ──
+
+    renderALPatch(p) {
+        var imgSrc = '/image/' + p.patch_path;
+        var pct = ((p.index + 1) / p.total * 100).toFixed(1);
+        var disabledAttr = this.state.history.length === 0 ? 'disabled' : '';
+        var taskLabel, taskColor, action1Label, action1Class, action2Label, action2Class, action1Value, action2Value;
+        var modelBox = '';
+
+        if (p.task_type === 'verify_pseudo') {
+            taskLabel = 'VERIFY PSEUDO-LABEL';
+            taskColor = '#3498db';
+            action1Label = '&#10003; Correct';
+            action1Class = 'btn-correct';
+            action1Value = 'correct';
+            action2Label = '&#10007; Wrong';
+            action2Class = 'btn-wrong';
+            action2Value = 'wrong';
+            var conf = (p.model_confidence !== null && p.model_confidence !== undefined)
+                ? p.model_confidence.toFixed(3) : '?';
+            var margin = (p.model_margin !== null && p.model_margin !== undefined)
+                ? p.model_margin.toFixed(3) : '?';
+            modelBox =
+                '<div class="model-prediction-box">' +
+                    '<div class="model-prediction-label">Model prediction:</div>' +
+                    '<div class="model-prediction-value">' +
+                        '<strong>' + escapeHtml(p.model_prediction || '?') + '</strong>' +
+                    '</div>' +
+                    '<div class="model-prediction-meta">' +
+                        'confidence: ' + conf + ' &nbsp;|&nbsp; ' +
+                        'margin: ' + margin +
+                    '</div>' +
+                '</div>';
+        } else if (p.task_type === 'label_hitl') {
+            taskLabel = 'LABEL HITL PATCH';
+            taskColor = '#e67e22';
+            action1Label = '&#10003; Healthy';
+            action1Class = 'btn-healthy';
+            action1Value = 'healthy';
+            action2Label = '&#10007; Unhealthy';
+            action2Class = 'btn-unhealthy';
+            action2Value = 'unhealthy';
+        } else {
+            taskLabel = 'UNKNOWN TASK: ' + escapeHtml(p.task_type || '?');
+            taskColor = '#e74c3c';
+            action1Label = 'OK';
+            action1Class = 'btn-healthy';
+            action1Value = 'healthy';
+            action2Label = 'Bad';
+            action2Class = 'btn-unhealthy';
+            action2Value = 'unhealthy';
+        }
+
+        var html =
+            '<div class="al-task-banner" style="background:' + taskColor + '">' +
+                taskLabel +
+            '</div>' +
+            '<div class="al-center">' +
+                '<div class="al-class-info">' +
+                    '<span class="al-class-name">' + escapeHtml(p.class_name) + '</span>' +
+                    '<span class="al-split">' + escapeHtml(p.split) + '</span>' +
+                '</div>' +
+                modelBox +
+                '<div class="al-image-container">' +
+                    '<img class="al-patch-image" src="' + imgSrc + '" alt="Patch">' +
+                    '<div class="al-image-counter">' + (p.index + 1) + ' / ' + p.total + '</div>' +
+                '</div>' +
+                '<div class="al-progress-container">' +
+                    '<div class="al-progress-bar-bg">' +
+                        '<div class="al-progress-bar-fill" style="width:' + pct + '%"></div>' +
+                    '</div>' +
+                    '<div class="al-progress-stats">' +
+                        '<span>' + p.annotated_count + ' annotated</span>' +
+                        '<span>' + pct + '%</span>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="al-button-row">' +
+                    '<button class="btn ' + action1Class + '" data-al-action="' + action1Value + '">' +
+                        action1Label +
+                    '</button>' +
+                    '<button class="btn ' + action2Class + '" data-al-action="' + action2Value + '">' +
+                        action2Label +
+                    '</button>' +
+                    '<button class="btn btn-skip" data-al-action="skip">Skip</button>' +
+                '</div>' +
+                '<div class="al-history-row">' +
+                    '<button class="btn-undo" data-al-action="undo" ' + disabledAttr + '>' +
+                        '&#8592; Undo (note: undo reloads previous patch)' +
+                    '</button>' +
+                '</div>' +
+            '</div>';
+
+        this.mainContent.className = 'main al-mode';
+        this.mainContent.innerHTML = html;
+        this.attachALListeners();
+    }
+
+    attachALListeners() {
+        var self = this;
+        this.mainContent.querySelectorAll('[data-al-action]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var action = btn.getAttribute('data-al-action');
+                if (action === 'undo') {
+                    self.callbacks.onUndo();
+                } else if (action === 'skip') {
+                    self.callbacks.onSkip();
+                } else {
+                    // 'correct' / 'wrong' / 'healthy' / 'unhealthy'
+                    self.callbacks.onAnnotate(action);
+                }
+            });
+        });
+        var patchImg = this.mainContent.querySelector('.al-patch-image');
+        if (patchImg) {
+            patchImg.addEventListener('error', function() { handleImageError(patchImg); });
+        }
+    }
+
+    showALDoneScreen() {
+        var round = (this.state && this.state.round) || '?';
+        this.mainContent.className = 'main single-panel';
+        this.mainContent.innerHTML =
+            '<div class="done-screen">' +
+                '<h2>All Done for Round ' + round + '!</h2>' +
+                '<p>You have processed all assigned active-learning patches.</p>' +
+                '<p style="margin-top: 16px;">' +
+                    'After all 5 annotators finish, run:<br>' +
+                    '<code>python active_learning_round.py --phase 2 verify --round ' + round + '</code>' +
+                '</p>' +
+            '</div>';
     }
 
     // ── Flash notification ──

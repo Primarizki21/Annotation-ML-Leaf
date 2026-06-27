@@ -7,8 +7,13 @@
  * Endpoints:
  *   getStatus()         → GET  /api/status
  *   doSetup(name)       → POST /api/setup
+ *   setupReview(name)   → POST /api/setup-review
+ *   setupNormal(name)   → POST /api/setup-normal
+ *   setupAL(name, n)    → POST /api/setup-al
  *   getCurrentPatch()   → GET  /api/patch/current
+ *   getCurrentALPatch() → GET  /api/patch/current-al
  *   annotate(path, lbl) → POST /api/annotate
+ *   annotateAL(p, tt, l, ic) → POST /api/annotate-al
  *   skipPatch(path)     → POST /api/skip
  *   undo()              → POST /api/undo
  *   jumpToPatch(path)   → GET  /api/jump-to-patch
@@ -66,6 +71,42 @@ export class ApiClient {
                     throw new Error(err.detail || 'Normal setup failed');
                 });
             }
+            return res.json();
+        });
+    }
+
+    setupAL(name, round) {
+        return fetch('/api/setup-al', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name: name, round: round})
+        }).then(function(res) {
+            if (!res.ok) {
+                return res.json().then(function(err) {
+                    throw new Error(err.detail || 'AL setup failed');
+                });
+            }
+            return res.json();
+        });
+    }
+
+    getCurrentALPatch() {
+        return fetch('/api/patch/current-al').then(function(res) {
+            if (!res.ok) throw new Error('Failed to get AL patch');
+            return res.json();
+        });
+    }
+
+    annotateAL(patchPath, taskType, label, isCorrect) {
+        var body = {patch_path: patchPath, task_type: taskType};
+        if (label !== undefined && label !== null) body.label = label;
+        if (isCorrect !== undefined && isCorrect !== null) body.is_correct = isCorrect;
+        return fetch('/api/annotate-al', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        }).then(function(res) {
+            if (!res.ok) throw new Error('AL annotate failed');
             return res.json();
         });
     }

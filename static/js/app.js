@@ -55,13 +55,26 @@ export class App {
                 if (data.setup) {
                     this.state.annotatorName = data.name;
                     this.state.mode = data.mode || 'normal';
+                    this.state.round = data.round || null;
                     this.annotatorNameEl.textContent = data.name;
                     var revBanner = document.getElementById('reviewBanner');
+                    var alBanner = document.getElementById('alBanner');
                     if (data.mode === 'review') {
                         this.annotatorNameEl.textContent = '[Review] ' + data.name;
                         if (revBanner) revBanner.classList.remove('hidden');
                     } else {
                         if (revBanner) revBanner.classList.add('hidden');
+                    }
+                    if (data.mode === 'al') {
+                        this.annotatorNameEl.textContent =
+                            '[AL R' + (data.round || '?') + '] ' + data.name;
+                        if (alBanner) {
+                            alBanner.classList.remove('hidden');
+                            var roundEl = document.getElementById('alRound');
+                            if (roundEl) roundEl.textContent = data.round || '?';
+                        }
+                    } else {
+                        if (alBanner) alBanner.classList.add('hidden');
                     }
                     this.updateReviewButton(data.mode, data.has_disputed);
                     this.setupModal.classList.add('hidden');
@@ -135,6 +148,23 @@ export class App {
     }
 
     loadCurrentPatch() {
+        if (this.state.mode === 'al') {
+            this.api.getCurrentALPatch()
+                .then((data) => {
+                    if (data.done) {
+                        this.state.done = true;
+                        this.renderer.showALDoneScreen();
+                        return;
+                    }
+                    this.state.currentPatch = data;
+                    this.state.loading = false;
+                    this.renderer.renderALPatch(data);
+                })
+                .catch((err) => {
+                    console.error('Load AL error:', err);
+                });
+            return;
+        }
         this.api.getCurrentPatch()
             .then((data) => {
                 if (data.done) {
@@ -184,6 +214,39 @@ export class App {
 
     annotate(label) {
         if (!this.state.currentPatch || this.state.loading) return;
+        var patch = this.state.currentPatch;
+        if (this.state.mode === 'al') {
+            // For label_hitl, label is the annotator's choice ("healthy"/"unhealthy").
+            // For verify_pseudo, is_correct is the annotator's choice (label is unused).
+            this.state.loading = true;
+            var isCorrect = (patch.task_type === 'verify_pseudo') ? (label === 'correct') : null;
+            this.api.annotateAL(patch.patch_path, patch.task_type, label, isCorrect)
+                .then((data) => {
+                    this.state.history.push({
+                        patch_path: patch.patch_path,
+                        class_name: patch.class_name,
+                        task_type: patch.task_type,
+                        label: label
+                    });
+                    var flashText = (patch.task_type === 'verify_pseudo')
+                        ? (isCorrect ? 'Correct' : 'Wrong')
+                        : (label === 'healthy' ? 'Healthy' : 'Unhealthy');
+                    this.renderer.showFlash(flashText);
+                    if (data.done) {
+                        this.state.done = true;
+                        this.renderer.showALDoneScreen();
+                    } else {
+                        this.state.currentPatch = data;
+                        this.state.loading = false;
+                        this.renderer.renderALPatch(data);
+                    }
+                })
+                .catch((err) => {
+                    this.state.loading = false;
+                    console.error('AL annotate error:', err);
+                });
+            return;
+        }
         this.state.loading = true;
 
         this.api.annotate(this.state.currentPatch.patch_path, label)
