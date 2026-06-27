@@ -165,14 +165,24 @@ export class Renderer {
         var statsEl = document.getElementById('leafStats');
         if (!wrap) return;
 
-        wrap.innerHTML =
+        var hasGrid = ctx.patches && ctx.patches.length > 0;
+        var hint = '';
+        if (!hasGrid && ctx.partial) {
+            hint = '<div class="grid-unavailable-hint">Grid tidak tersedia untuk daun ini</div>';
+        }
+
+        wrap.innerHTML = hint +
             '<div class="grid-wrapper">' +
                 '<img id="gridLeafImg" src="' + escapeHtml(ctx.source_image_url) + '" alt="Leaf grid">' +
                 '<canvas id="gridCanvas"></canvas>' +
             '</div>';
 
         if (statsEl) {
-            statsEl.textContent = 'Leaf: ' + ctx.annotated_count + ' / ' + ctx.total_patches + ' patches annotated';
+            if (hasGrid) {
+                statsEl.textContent = 'Leaf: ' + ctx.annotated_count + ' / ' + ctx.total_patches + ' patches annotated';
+            } else {
+                statsEl.textContent = 'Grid metadata tidak tersedia';
+            }
         }
 
         var img = document.getElementById('gridLeafImg');
@@ -193,6 +203,9 @@ export class Renderer {
             canvas.style.height = h + 'px';
             var c = canvas.getContext('2d');
             c.clearRect(0, 0, w, h);
+
+            // No grid data — just leave the image alone, no overlay drawn
+            if (!hasGrid) return;
 
             var scaleX = w / ctx.img_width;
             var scaleY = h / ctx.img_height;
@@ -218,7 +231,6 @@ export class Renderer {
                     c.strokeStyle = '#00d4ff';
                     c.lineWidth = 1;
                     c.strokeRect(x, y, cellW, cellH);
-                    // c.strokeRect(x + 1, y +1, cellW - 2, cellH - 2);
                 }
             });
 
@@ -248,29 +260,32 @@ export class Renderer {
         self._gridObserver = new ResizeObserver(function() { drawGrid(); });
         self._gridObserver.observe(wrap);
 
-        canvas.addEventListener('click', function(e) {
-            var rect = canvas.getBoundingClientRect();
-            var canvasScaleX = canvas.width / rect.width;
-            var canvasScaleY = canvas.height / rect.height;
-            var clickX = (e.clientX - rect.left) * canvasScaleX;
-            var clickY = (e.clientY - rect.top) * canvasScaleY;
+        // Only attach click navigation if we have grid data
+        if (hasGrid) {
+            canvas.addEventListener('click', function(e) {
+                var rect = canvas.getBoundingClientRect();
+                var canvasScaleX = canvas.width / rect.width;
+                var canvasScaleY = canvas.height / rect.height;
+                var clickX = (e.clientX - rect.left) * canvasScaleX;
+                var clickY = (e.clientY - rect.top) * canvasScaleY;
 
-            var cellW = PATCH_SIZE * (canvas.width / ctx.img_width);
-            var cellH = PATCH_SIZE * (canvas.height / ctx.img_height);
-            var clickedCol = Math.floor(clickX / cellW);
-            var clickedRow = Math.floor(clickY / cellH);
+                var cellW = PATCH_SIZE * (canvas.width / ctx.img_width);
+                var cellH = PATCH_SIZE * (canvas.height / ctx.img_height);
+                var clickedCol = Math.floor(clickX / cellW);
+                var clickedRow = Math.floor(clickY / cellH);
 
-            var target = null;
-            for (var i = 0; i < ctx.patches.length; i++) {
-                if (ctx.patches[i].row === clickedRow && ctx.patches[i].col === clickedCol) {
-                    target = ctx.patches[i];
-                    break;
+                var target = null;
+                for (var i = 0; i < ctx.patches.length; i++) {
+                    if (ctx.patches[i].row === clickedRow && ctx.patches[i].col === clickedCol) {
+                        target = ctx.patches[i];
+                        break;
+                    }
                 }
-            }
-            if (target) {
-                self.callbacks.onJumpToPatch(target.patch_path);
-            }
-        });
+                if (target) {
+                    self.callbacks.onJumpToPatch(target.patch_path);
+                }
+            });
+        }
     }
 
     // ── Patch strip ──
@@ -279,6 +294,17 @@ export class Renderer {
         var strip = document.getElementById('patchStrip');
         if (!strip) return;
         strip.innerHTML = '';
+
+        // Empty patches (partial response / no metadata) — show a hint
+        if (!ctx.patches || ctx.patches.length === 0) {
+            var emptyMsg = document.createElement('div');
+            emptyMsg.className = 'strip-empty';
+            emptyMsg.textContent = ctx.partial
+                ? 'Tidak ada tetangga (grid tidak tersedia)'
+                : 'Tidak ada patch untuk daun ini';
+            strip.appendChild(emptyMsg);
+            return;
+        }
 
         ctx.patches.forEach((patch) => {
             var img = document.createElement('img');

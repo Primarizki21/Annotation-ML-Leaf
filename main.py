@@ -123,7 +123,14 @@ leaf_index: dict[tuple[str, str, str], dict] = {}
 
 
 def build_leaf_index():
-    """Build leaf index from metadata. Called lazily on first leaf-context request."""
+    """Build leaf index from metadata. Called lazily on first leaf-context request.
+
+    Looks in two locations, in priority order:
+      1. dataset_patches/metadata_{split}.json  (newer, may have test data)
+      2. dataset_consensus_only/metadata_{split}.json  (older, train only)
+    First source wins for duplicate entries. Falls back to image-only mode
+    (api_leaf_context) for leaves that aren't in any metadata.
+    """
     global leaf_index
     if leaf_index:
         return  # Already built
@@ -131,12 +138,32 @@ def build_leaf_index():
     import time
     start = time.time()
     leaf_index = {}
+
+    # Collect metadata sources in priority order
+    metadata_sources = []
+    # 1. dataset_patches/ (newer — may have test metadata from patch_splitting.py)
+    if (BASE_DIR / "dataset_patches").exists():
+        for split in ("train", "test"):
+            p = BASE_DIR / "dataset_patches" / f"metadata_{split}.json"
+            if p.exists():
+                metadata_sources.append((split, p, "dataset_patches"))
+    # 2. dataset_consensus_only/ (older — train metadata)
     for split in ("train", "test"):
-        meta_path = DATASET_DIR / f"metadata_{split}.json"
-        if not meta_path.exists():
+        p = DATASET_DIR / f"metadata_{split}.json"
+        if p.exists():
+            # Skip if already added from dataset_patches (first source wins)
+            already = any(s == split and "dataset_patches" in src
+                          for s, _, src in metadata_sources)
+            if not already:
+                metadata_sources.append((split, p, "dataset_consensus_only"))
+
+    for split, meta_path, source in metadata_sources:
+        try:
+            with open(meta_path, "r", encoding="utf-8") as f:
+                entries = json.load(f)
+        except Exception as e:
+            print(f"  [WARN] Failed to read {meta_path}: {e}", file=sys.stderr)
             continue
-        with open(meta_path, "r", encoding="utf-8") as f:
-            entries = json.load(f)
         for entry in entries:
             patch_path_raw = entry["patch_path"]
             filename = patch_path_raw.replace("\\", "/").split("/")[-1]
@@ -173,7 +200,8 @@ def build_leaf_index():
         leaf_data["patches"].sort(key=lambda p: (p["row"], p["col"]))
 
     elapsed = time.time() - start
-    print(f"Leaf index built: {len(leaf_index)} leaves in {elapsed:.1f}s", file=sys.stderr)
+    print(f"Leaf index built: {len(leaf_index)} leaves in {elapsed:.1f}s "
+          f"(sources: {[src for _, _, src in metadata_sources]})", file=sys.stderr)
 
 
 # --- Pydantic models ---
@@ -1325,6 +1353,23 @@ async def api_leaf_context(split: str, class_name: str, leaf_stem: str):
 
     key = (split, class_name, leaf_stem)
     if key not in leaf_index:
+        # Graceful fallback: leaf not in any metadata, but the raw image
+        # may still exist. Return a partial response with image only
+        # (no grid data) so the user can still see the full leaf.
+        source_rel = f"raw/segmented/{class_name}/{leaf_stem}.jpg"
+        raw_image = DATASET_FILTERED_DIR / source_rel
+        if raw_image.exists():
+            return {
+                "source_image_url": f"/raw-image/{source_rel}",
+                "patches": [],
+                "grid_rows": 8,
+                "grid_cols": 8,
+                "img_width": 8 * PATCH_SIZE,
+                "img_height": 8 * PATCH_SIZE,
+                "annotated_count": 0,
+                "total_patches": 0,
+                "partial": True,
+            }
         raise HTTPException(404, f"Leaf not found: {leaf_stem}")
 
     leaf_data = leaf_index[key]

@@ -166,6 +166,28 @@ body {
     text-align: center;
 }
 
+/* Grid-unavailable hint (when leaf context returns partial: true) */
+.grid-unavailable-hint {
+    background: rgba(243, 156, 18, 0.10);
+    border: 1px solid rgba(243, 156, 18, 0.35);
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: #f5d742;
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+/* Empty strip (no patch neighbors) */
+.strip-empty {
+    width: 100%;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 12px;
+    padding: 12px 0;
+    font-style: italic;
+}
+
 /* Patch strip (horizontal scrollable) */
 .patch-strip {
     display: flex;
