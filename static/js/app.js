@@ -110,6 +110,12 @@ export class App {
                     self.updateHistoryButton(data.mode);
                     self.setupModal.classList.add('hidden');
                     self.loadCurrentPatch();
+                    // Phase 5.4: session resume notification
+                    if (data.annotated > 0) {
+                        self.renderer.showToast(
+                            'Melanjutkan sesi. ' + data.annotated + ' patch sudah dianotasi.',
+                            'info', 4000);
+                    }
                     if (data.mode === 'al' && !data.seen_intro) {
                         // First-time AL session — show intro modal
                         self.api.getCurrentALPatch().then(function(patch) {
@@ -470,8 +476,16 @@ export class App {
                 this.state.history.pop();
                 this.state.currentPatch = data;
                 this.state.loading = false;
-                this.state.leafContext = null;
-                this.state.currentLeafStem = null;
+                // Phase 5.1: smooth undo — only nuke leaf context if patch moved
+                // to a different leaf. Same-leaf undo just removes the cached label
+                // and updates the center panel without a full reload.
+                var newStem = getLeafStem(data.patch_path);
+                if (this.state.currentLeafStem && newStem === this.state.currentLeafStem) {
+                    this.state.removeCachedLeafLabel(data.patch_path);
+                } else {
+                    this.state.leafContext = null;
+                    this.state.currentLeafStem = null;
+                }
                 if (this.state.mode === 'al') {
                     this.handleALLeafSwitch();
                 } else {
@@ -481,7 +495,16 @@ export class App {
             .catch((err) => {
                 this.state.loading = false;
                 console.error('Undo error:', err);
-                this.renderer.showToast('Gagal undo.', 'error');
+                // Phase 5.2: distinguish history desync (server has no history)
+                // from real network/parse errors
+                var msg = (err && err.message) || 'Gagal undo.';
+                if (msg.toLowerCase().includes('nothing to undo')) {
+                    // Server has no history — sync our local state
+                    this.state.history = [];
+                    this.renderer.showToast('Tidak ada anotasi untuk di-undo.', 'warning');
+                } else {
+                    this.renderer.showToast('Gagal undo: ' + msg, 'error');
+                }
             });
     }
 

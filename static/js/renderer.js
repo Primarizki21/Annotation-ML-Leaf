@@ -336,6 +336,7 @@ export class Renderer {
         var taskLabel, taskColor, action1Label, action1Class, action2Label, action2Class, action1Value, action2Value;
         var modelBox = '';
         var clusterInfo = '';
+        var zoomLevel = this.state.zoomLevel || 8;
 
         if (p.task_type === 'verify_pseudo') {
             taskLabel = 'VERIFIKASI PSEUDO-LABEL';
@@ -424,6 +425,14 @@ export class Renderer {
             ? '<span class="al-class-progress">' + p.class_done + ' / ' + p.class_total + ' di kelas ini (' + classPct + '%)</span>'
             : '';
 
+        // Zoom toggle (5.3)
+        var zoomBtns = '';
+        [1, 8, 16].forEach(function(z) {
+            var active = (z === zoomLevel) ? ' active' : '';
+            zoomBtns += '<button class="al-zoom-btn' + active + '" data-al-zoom="' + z + '">' + z + 'x</button>';
+        });
+        var zoomToggle = '<div class="al-zoom-toggle">' + zoomBtns + '</div>';
+
         var html =
             '<div class="al-task-banner" style="background:' + taskColor + '">' +
                 taskLabel +
@@ -436,9 +445,10 @@ export class Renderer {
             '</div>' +
             modelBox +
             clusterInfo +
-            '<div class="al-image-container">' +
+            '<div class="al-image-container" data-zoom="' + zoomLevel + '">' +
                 '<img class="al-patch-image" src="' + imgSrc + '" alt="Patch">' +
                 '<div class="al-image-counter">' + (p.index + 1) + ' / ' + p.total + '</div>' +
+                zoomToggle +
             '</div>' +
             taskProgress +
             '<div class="al-button-row">' +
@@ -452,7 +462,7 @@ export class Renderer {
             '</div>' +
             '<div class="al-history-row">' +
                 '<button class="btn-undo" data-al-action="undo" ' + disabledAttr + '>' +
-                    '&#8592; Undo (note: undo reloads previous patch)' +
+                    '&#8592; Undo' +
                 '</button>' +
             '</div>';
 
@@ -514,6 +524,21 @@ export class Renderer {
                 }
             });
         });
+        // Zoom toggle (5.3)
+        this.mainContent.querySelectorAll('[data-al-zoom]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var z = parseInt(btn.getAttribute('data-al-zoom'), 10);
+                if (z && z !== self.state.zoomLevel) {
+                    self.state.zoomLevel = z;
+                    var container = self.mainContent.querySelector('.al-image-container');
+                    if (container) container.setAttribute('data-zoom', z);
+                    self.mainContent.querySelectorAll('.al-zoom-btn').forEach(function(b) {
+                        b.classList.toggle('active',
+                            parseInt(b.getAttribute('data-al-zoom'), 10) === z);
+                    });
+                }
+            });
+        });
         var patchImg = this.mainContent.querySelector('.al-patch-image');
         if (patchImg) {
             patchImg.addEventListener('error', function() { handleImageError(patchImg); });
@@ -528,6 +553,7 @@ export class Renderer {
         var taskLabel, taskColor, action1Label, action1Class, action2Label, action2Class, action1Value, action2Value;
         var modelBox = '';
         var clusterInfo = '';
+        var zoomLevel = this.state.zoomLevel || 8;
 
         if (p.task_type === 'verify_pseudo') {
             taskLabel = 'VERIFIKASI PSEUDO-LABEL';
@@ -614,6 +640,14 @@ export class Renderer {
             ? '<span class="al-class-progress">' + p.class_done + ' / ' + p.class_total + ' di kelas ini (' + classPct + '%)</span>'
             : '';
 
+        // Zoom toggle (5.3)
+        var zoomBtns = '';
+        [1, 8, 16].forEach(function(z) {
+            var active = (z === zoomLevel) ? ' active' : '';
+            zoomBtns += '<button class="al-zoom-btn' + active + '" data-al-zoom="' + z + '">' + z + 'x</button>';
+        });
+        var zoomToggle = '<div class="al-zoom-toggle">' + zoomBtns + '</div>';
+
         return '<div class="al-task-banner" style="background:' + taskColor + '">' +
                 taskLabel +
             '</div>' +
@@ -625,9 +659,10 @@ export class Renderer {
             '</div>' +
             modelBox +
             clusterInfo +
-            '<div class="al-image-container">' +
+            '<div class="al-image-container" data-zoom="' + zoomLevel + '">' +
                 '<img class="al-patch-image" src="' + imgSrc + '" alt="Patch">' +
                 '<div class="al-image-counter">' + (p.index + 1) + ' / ' + p.total + '</div>' +
+                zoomToggle +
             '</div>' +
             taskProgress +
             '<div class="al-button-row">' +
@@ -641,7 +676,7 @@ export class Renderer {
             '</div>' +
             '<div class="al-history-row">' +
                 '<button class="btn-undo" data-al-action="undo" ' + disabledAttr + '>' +
-                    '&#8592; Undo (note: undo reloads previous patch)' +
+                    '&#8592; Undo' +
                 '</button>' +
             '</div>' +
             '<div class="patch-strip" id="patchStrip"></div>';

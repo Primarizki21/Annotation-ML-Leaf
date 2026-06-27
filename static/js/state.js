@@ -26,6 +26,7 @@ export class State {
         this.loading = true;
         this.leafContext = null;
         this.currentLeafStem = null;
+        this.zoomLevel = 8;  // Phase 5.3: AL patch image zoom (1, 8, or 16)
     }
 
     updateCachedLeafLabel(patchPath, label) {
@@ -36,6 +37,19 @@ export class State {
                     this.leafContext.annotated_count++;
                 }
                 this.leafContext.patches[i].label = label;
+                break;
+            }
+        }
+    }
+
+    removeCachedLeafLabel(patchPath) {
+        if (!this.leafContext) return;
+        for (var i = 0; i < this.leafContext.patches.length; i++) {
+            if (this.leafContext.patches[i].patch_path === patchPath) {
+                if (this.leafContext.patches[i].label) {
+                    this.leafContext.annotated_count = Math.max(0, this.leafContext.annotated_count - 1);
+                }
+                this.leafContext.patches[i].label = null;
                 break;
             }
         }
