@@ -39,6 +39,15 @@ export class Renderer {
         this.progressTextEl = document.getElementById('progressText');
         this.toastContainer = document.getElementById('toastContainer');
         this._toastQueue = [];
+
+        // Modal refs (Phase 4)
+        this.alIntroModal = document.getElementById('alIntroModal');
+        this.helpModal = document.getElementById('helpModal');
+        this.historyModal = document.getElementById('historyModal');
+        this.historyList = document.getElementById('historyList');
+        this.alIntroBtn = document.getElementById('alIntroBtn');
+        this.helpCloseBtn = document.getElementById('helpCloseBtn');
+        this.historyCloseBtn = document.getElementById('historyCloseBtn');
     }
 
     updateProgress(patch) {
@@ -723,5 +732,78 @@ export class Renderer {
             toast.classList.remove('show');
             setTimeout(function() { toast.remove(); }, 250);
         }, duration);
+    }
+
+    // ── Modal helpers (Phase 4) ──
+
+    hideAllModals() {
+        if (this.alIntroModal) this.alIntroModal.classList.add('hidden');
+        if (this.helpModal) this.helpModal.classList.add('hidden');
+        if (this.historyModal) this.historyModal.classList.add('hidden');
+    }
+
+    isAnyModalOpen() {
+        return (this.alIntroModal && !this.alIntroModal.classList.contains('hidden'))
+            || (this.helpModal && !this.helpModal.classList.contains('hidden'))
+            || (this.historyModal && !this.historyModal.classList.contains('hidden'));
+    }
+
+    showALIntroModal(total) {
+        if (!this.alIntroModal) return;
+        var totalEl = document.getElementById('alIntroTotal');
+        if (totalEl && total) totalEl.textContent = total;
+        this.alIntroModal.classList.remove('hidden');
+    }
+
+    hideALIntroModal() {
+        if (this.alIntroModal) this.alIntroModal.classList.add('hidden');
+    }
+
+    showHelpModal() {
+        if (!this.helpModal) return;
+        this.helpModal.classList.remove('hidden');
+    }
+
+    hideHelpModal() {
+        if (this.helpModal) this.helpModal.classList.add('hidden');
+    }
+
+    showHistoryModal(items) {
+        if (!this.historyModal) return;
+        this._renderHistoryList(items || []);
+        this.historyModal.classList.remove('hidden');
+    }
+
+    hideHistoryModal() {
+        if (this.historyModal) this.historyModal.classList.add('hidden');
+    }
+
+    _renderHistoryList(items) {
+        if (!this.historyList) return;
+        if (!items || items.length === 0) {
+            this.historyList.innerHTML = '<div class="history-empty">Belum ada anotasi di sesi ini.</div>';
+            return;
+        }
+        var html = '';
+        items.forEach(function(item) {
+            var isSkipped = item.is_skipped === 'True' || item.is_skipped === true;
+            var displayLabel = isSkipped ? 'Skipped' : item.label;
+            var labelClass = isSkipped ? 'skipped'
+                : (item.label || '').toLowerCase()
+                    .replace(' ', '');
+            var shortPath = (item.patch_path || '').split('/').pop();
+            html += '<div class="history-item">' +
+                '<span class="history-task ' + escapeHtml(item.task_type || '') + '">' +
+                    escapeHtml(item.task_type || '') +
+                '</span>' +
+                '<span class="history-path" title="' + escapeHtml(item.patch_path || '') + '">' +
+                    escapeHtml(shortPath) +
+                '</span>' +
+                '<span class="history-label ' + escapeHtml(labelClass) + '">' +
+                    escapeHtml(displayLabel) +
+                '</span>' +
+            '</div>';
+        });
+        this.historyList.innerHTML = html;
     }
 }

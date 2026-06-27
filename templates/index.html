@@ -16,6 +16,8 @@
         <div class="header-right">
             <button id="reviewBtn" class="btn-link" style="display:none">Review Disputed</button>
             <button id="alBtn" class="btn-link" style="display:none">Active Learning</button>
+            <button id="historyBtn" class="btn-link" style="display:none" title="Riwayat anotasi (Shift+H)">Riwayat</button>
+            <button id="helpBtn" class="btn-link" title="Bantuan keyboard (?)">?</button>
             <a href="/dashboard" class="btn-link">Dashboard</a>
         </div>
     </div>
@@ -45,6 +47,72 @@
             <div class="error-msg" id="setupError"></div>
             <input type="text" id="nameInput" placeholder="Your name" autocomplete="off">
             <button class="btn btn-healthy" id="setupBtn">Start Annotating</button>
+        </div>
+    </div>
+
+    <!-- AL intro modal (Phase 4.1) -->
+    <div class="modal-overlay hidden" id="alIntroModal">
+        <div class="modal al-intro-modal">
+            <h2>Selamat Datang di Active Learning!</h2>
+            <p>Anda akan menganotasi <strong id="alIntroTotal">~320</strong> patch dengan dua jenis tugas:</p>
+            <div class="al-intro-task verify">
+                <div class="al-intro-task-title">Verifikasi Pseudo-Label (badge biru)</div>
+                <div class="al-intro-task-body">
+                    Model sudah sangat yakin dengan prediksinya. Tugas Anda tinggal konfirmasi: benar atau salah?
+                    Membantu kami mengukur keandalan model pada kasus yang mudah.
+                </div>
+            </div>
+            <div class="al-intro-task hitl">
+                <div class="al-intro-task-title">Label HITL (badge oranye)</div>
+                <div class="al-intro-task-body">
+                    Model sangat tidak yakin dengan patch ini. Tugas Anda memberi label dari awal.
+                    Ini adalah patch tersulit yang dipilih secara khusus untuk membantu model belajar.
+                </div>
+            </div>
+            <div class="al-intro-tip">
+                <div class="al-intro-tip-title">Estimasi waktu</div>
+                <div class="al-intro-tip-body">
+                    Sekitar <strong>~50 menit</strong> untuk 320 patch (10 detik per patch).
+                </div>
+            </div>
+            <div class="al-intro-tip">
+                <div class="al-intro-tip-title">Keyboard</div>
+                <div class="al-intro-tip-body">
+                    <span class="kbd">H</span> Sehat/Benar &nbsp;
+                    <span class="kbd">U</span> Tidak Sehat/Salah &nbsp;
+                    <span class="kbd">S</span> Lewati &nbsp;
+                    <span class="kbd">&larr;</span> Undo &nbsp;
+                    <span class="kbd">?</span> Bantuan
+                </div>
+            </div>
+            <button class="btn btn-healthy" id="alIntroBtn">Mulai Anotasi</button>
+        </div>
+    </div>
+
+    <!-- Keyboard help modal (Phase 4.2) -->
+    <div class="modal-overlay hidden" id="helpModal">
+        <div class="modal help-modal">
+            <h2>Pintasan Keyboard</h2>
+            <table class="help-table">
+                <tr><td><span class="kbd">H</span></td><td>Sehat (label_hitl) atau Benar (verify_pseudo)</td></tr>
+                <tr><td><span class="kbd">U</span></td><td>Tidak Sehat (label_hitl) atau Salah (verify_pseudo)</td></tr>
+                <tr><td><span class="kbd">S</span></td><td>Lewati patch (tidak yakin, akan diulang)</td></tr>
+                <tr><td><span class="kbd">&larr;</span></td><td>Undo anotasi terakhir</td></tr>
+                <tr><td><span class="kbd">Shift</span>+<span class="kbd">H</span></td><td>Buka Riwayat Anotasi (panel kanan)</td></tr>
+                <tr><td><span class="kbd">?</span></td><td>Tampilkan bantuan ini</td></tr>
+                <tr><td><span class="kbd">Esc</span></td><td>Tutup modal bantuan / riwayat</td></tr>
+            </table>
+            <button class="btn" id="helpCloseBtn">Tutup</button>
+        </div>
+    </div>
+
+    <!-- History modal (Phase 4.3) -->
+    <div class="modal-overlay hidden" id="historyModal">
+        <div class="modal history-modal">
+            <h2>Riwayat Anotasi</h2>
+            <p class="history-modal-sub">20 anotasi terakhir Anda (dari CSV lokal)</p>
+            <div id="historyList" class="history-list">Memuat...</div>
+            <button class="btn" id="historyCloseBtn">Tutup</button>
         </div>
     </div>
 

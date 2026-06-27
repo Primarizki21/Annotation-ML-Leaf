@@ -230,6 +230,16 @@ def save_config(name: str, mode: str = "normal"):
         json.dump({"name": name, "mode": mode}, f, indent=2)
 
 
+def update_config(updates: dict):
+    """Merge updates into annotator_config.json (preserves existing fields)."""
+    config = load_config()
+    if not config:
+        return
+    config.update(updates)
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2)
+
+
 def init_session(name: str) -> dict:
     """Initialize or restore a session for the given annotator."""
     assignments = load_assignments()
@@ -585,6 +595,9 @@ async def api_status():
     }
     if mode == "al":
         resp["round"] = session.get("round", AL_DEFAULT_ROUND)
+        # Phase 4.1: first-time intro flag (per annotator, per round)
+        seen_rounds = config.get("al_intro_seen", [])
+        resp["seen_intro"] = resp["round"] in seen_rounds
     return resp
 
 
@@ -678,6 +691,60 @@ async def api_setup_al(req: ALSetupRequest):
         "total": session["total_original"],
         "annotated": session["annotated_count"],
     }
+
+
+@app.post("/api/mark-intro-seen")
+async def api_mark_intro_seen():
+    """Mark that the annotator has seen the AL intro modal for the current round."""
+    config = load_config()
+    if not config or config.get("mode") != "al":
+        raise HTTPException(400, "AL mode not active")
+    round_n = config.get("round", AL_DEFAULT_ROUND)
+    seen = config.get("al_intro_seen", [])
+    if round_n not in seen:
+        seen.append(round_n)
+        update_config({"al_intro_seen": seen})
+    return {"ok": True, "round": round_n}
+
+
+@app.get("/api/history-al")
+async def api_history_al():
+    """Return the last 20 AL annotations for the current annotator (from CSV)."""
+    config = load_config()
+    if not config or config.get("mode") != "al":
+        raise HTTPException(400, "AL mode not active")
+    name = config["name"]
+    round_n = config.get("round", AL_DEFAULT_ROUND)
+    csv_path = ANNOTATIONS_DIR / f"annotations_{name}_al_round{round_n}.csv"
+    if not csv_path.exists():
+        return {"history": []}
+    try:
+        with open(csv_path, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+    except Exception:
+        return {"history": []}
+    # Return last 20 rows, newest first
+    recent = rows[-20:][::-1]
+    out = []
+    for r in recent:
+        task_type = r.get("task_type", "")
+        if task_type == "verify_pseudo":
+            label = "Correct" if r.get("is_correct", "").lower() == "true" else "Wrong"
+        elif task_type == "label_hitl":
+            label = r.get("label", "") or "—"
+        else:
+            label = r.get("label", "") or "—"
+        out.append({
+            "patch_path": r.get("patch_path", ""),
+            "class_name": r.get("class_name", ""),
+            "split": r.get("split", ""),
+            "task_type": task_type,
+            "label": label,
+            "is_skipped": r.get("is_skipped", "False"),
+            "timestamp": r.get("timestamp", ""),
+        })
+    return {"history": out}
 
 
 @app.get("/api/patch/current-al")

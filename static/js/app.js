@@ -37,6 +37,8 @@ export class App {
         this.annotatorNameEl = document.getElementById('annotatorName');
         this.reviewBtn = document.getElementById('reviewBtn');
         this.alBtn = document.getElementById('alBtn');
+        this.historyBtn = document.getElementById('historyBtn');
+        this.helpBtn = document.getElementById('helpBtn');
 
         // Bind setup events
         this.setupBtn.addEventListener('click', () => this.doSetup());
@@ -52,27 +54,48 @@ export class App {
             this.alBtn.addEventListener('click', () => this.toggleALMode());
         }
 
+        // History + Help buttons (Phase 4.2 + 4.3)
+        if (this.historyBtn) {
+            this.historyBtn.addEventListener('click', () => this.toggleHistoryModal());
+        }
+        if (this.helpBtn) {
+            this.helpBtn.addEventListener('click', () => this.renderer.showHelpModal());
+        }
+        var alIntroBtn = document.getElementById('alIntroBtn');
+        if (alIntroBtn) {
+            alIntroBtn.addEventListener('click', () => this.dismissIntroModal());
+        }
+        var helpCloseBtn = document.getElementById('helpCloseBtn');
+        if (helpCloseBtn) {
+            helpCloseBtn.addEventListener('click', () => this.renderer.hideHelpModal());
+        }
+        var historyCloseBtn = document.getElementById('historyCloseBtn');
+        if (historyCloseBtn) {
+            historyCloseBtn.addEventListener('click', () => this.renderer.hideHistoryModal());
+        }
+
         this.setupKeyboardShortcuts();
     }
 
     init() {
+        var self = this;
         this.api.getStatus()
             .then((data) => {
                 if (data.setup) {
-                    this.state.annotatorName = data.name;
-                    this.state.mode = data.mode || 'normal';
-                    this.state.round = data.round || null;
-                    this.annotatorNameEl.textContent = data.name;
+                    self.state.annotatorName = data.name;
+                    self.state.mode = data.mode || 'normal';
+                    self.state.round = data.round || null;
+                    self.annotatorNameEl.textContent = data.name;
                     var revBanner = document.getElementById('reviewBanner');
                     var alBanner = document.getElementById('alBanner');
                     if (data.mode === 'review') {
-                        this.annotatorNameEl.textContent = '[Review] ' + data.name;
+                        self.annotatorNameEl.textContent = '[Review] ' + data.name;
                         if (revBanner) revBanner.classList.remove('hidden');
                     } else {
                         if (revBanner) revBanner.classList.add('hidden');
                     }
                     if (data.mode === 'al') {
-                        this.annotatorNameEl.textContent =
+                        self.annotatorNameEl.textContent =
                             '[AL R' + (data.round || '?') + '] ' + data.name;
                         if (alBanner) {
                             alBanner.classList.remove('hidden');
@@ -82,18 +105,28 @@ export class App {
                     } else {
                         if (alBanner) alBanner.classList.add('hidden');
                     }
-                    this.updateReviewButton(data.mode, data.has_disputed);
-                    this.updateALButton(data.mode, data.round);
-                    this.setupModal.classList.add('hidden');
-                    this.loadCurrentPatch();
+                    self.updateReviewButton(data.mode, data.has_disputed);
+                    self.updateALButton(data.mode, data.round);
+                    self.updateHistoryButton(data.mode);
+                    self.setupModal.classList.add('hidden');
+                    self.loadCurrentPatch();
+                    if (data.mode === 'al' && !data.seen_intro) {
+                        // First-time AL session — show intro modal
+                        self.api.getCurrentALPatch().then(function(patch) {
+                            var total = patch && patch.total ? patch.total : 320;
+                            self.renderer.showALIntroModal(total);
+                        }).catch(function() {
+                            self.renderer.showALIntroModal(320);
+                        });
+                    }
                 } else {
-                    this.setupModal.classList.remove('hidden');
+                    self.setupModal.classList.remove('hidden');
                 }
             })
             .catch((err) => {
                 console.error('Init error:', err);
-                this.renderer.showToast('Gagal memuat status. Periksa koneksi.', 'error', 5000);
-                this.setupModal.classList.remove('hidden');
+                self.renderer.showToast('Gagal memuat status. Periksa koneksi.', 'error', 5000);
+                self.setupModal.classList.remove('hidden');
             });
     }
 
@@ -117,6 +150,36 @@ export class App {
             this.alBtn.textContent = 'Active Learning' + (round ? ' R' + round : '');
             this.alBtn.style.display = '';
         }
+    }
+
+    updateHistoryButton(mode) {
+        if (!this.historyBtn) return;
+        // Show History button only in AL mode (data source is annotations_*_al_round*.csv)
+        this.historyBtn.style.display = (mode === 'al') ? '' : 'none';
+    }
+
+    dismissIntroModal() {
+        this.renderer.hideALIntroModal();
+        this.api.markIntroSeen().catch(function(err) {
+            console.warn('Could not mark intro seen:', err);
+        });
+    }
+
+    toggleHistoryModal() {
+        if (this.state.mode !== 'al') return;
+        if (this.renderer.isAnyModalOpen()
+            && !this.renderer.historyModal.classList.contains('hidden')) {
+            this.renderer.hideHistoryModal();
+            return;
+        }
+        this.renderer.showHistoryModal([]);  // shows "Memuat..." placeholder
+        var self = this;
+        this.api.getALHistory().then(function(data) {
+            self.renderer.showHistoryModal(data.history || []);
+        }).catch(function(err) {
+            console.error('History fetch error:', err);
+            self.renderer.showHistoryModal([]);
+        });
     }
 
     toggleALMode() {
@@ -444,9 +507,40 @@ export class App {
     }
 
     setupKeyboardShortcuts() {
+        var self = this;
         document.addEventListener('keydown', (e) => {
+            // Esc closes any open modal
+            if (e.key === 'Escape') {
+                if (self.renderer.isAnyModalOpen()) {
+                    e.preventDefault();
+                    self.renderer.hideAllModals();
+                    return;
+                }
+            }
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-            if (!this.setupModal.classList.contains('hidden')) return;
+            if (!self.setupModal.classList.contains('hidden')) return;
+            // Don't trigger annotation shortcuts if a modal is open
+            if (self.renderer.isAnyModalOpen()) {
+                // Only allow Escape (handled above) and '?' in modals
+                if (e.key === '?') {
+                    e.preventDefault();
+                    self.renderer.showHelpModal();
+                }
+                return;
+            }
+
+            // ? opens help (Shift not required)
+            if (e.key === '?') {
+                e.preventDefault();
+                self.renderer.showHelpModal();
+                return;
+            }
+            // Shift+H opens history (AL mode only)
+            if (e.key === 'H' && e.shiftKey) {
+                e.preventDefault();
+                self.toggleHistoryModal();
+                return;
+            }
 
             switch (e.key.toLowerCase()) {
                 case 'h':

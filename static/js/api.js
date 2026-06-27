@@ -148,6 +148,20 @@ export class ApiClient {
         });
     }
 
+    markIntroSeen() {
+        return fetch('/api/mark-intro-seen', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        }).then(function(res) { return res.json(); });
+    }
+
+    getALHistory() {
+        return fetch('/api/history-al').then(function(res) {
+            if (!res.ok) throw new Error('AL history fetch failed');
+            return res.json();
+        });
+    }
+
     undo() {
         return fetch('/api/undo', {method: 'POST'}).then(function(res) {
             if (!res.ok) throw new Error('Undo failed');

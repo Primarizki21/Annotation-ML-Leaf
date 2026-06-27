@@ -499,6 +499,159 @@ body {
 .toast.error   { border-left-color: var(--unhealthy); }
 
 /* =========================================================================
+   Modal — Generic + AL intro + Help + History (Phase 4)
+   ========================================================================= */
+.al-intro-modal,
+.help-modal,
+.history-modal {
+    max-width: 560px;
+    text-align: left;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+.al-intro-modal h2,
+.help-modal h2,
+.history-modal h2 {
+    text-align: center;
+    color: var(--accent);
+}
+.al-intro-task {
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin: 12px 0;
+    font-size: 13px;
+    line-height: 1.5;
+}
+.al-intro-task.verify {
+    background: rgba(52, 152, 219, 0.10);
+    border-left: 4px solid #3498db;
+}
+.al-intro-task.hitl {
+    background: rgba(230, 126, 34, 0.10);
+    border-left: 4px solid #e67e22;
+}
+.al-intro-task-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: #ecf0f1;
+}
+.al-intro-task-body {
+    color: #bdc3c7;
+}
+.al-intro-tip {
+    background: rgba(149, 165, 166, 0.08);
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin: 8px 0;
+    font-size: 12px;
+}
+.al-intro-tip-title {
+    font-weight: 600;
+    color: #f5d742;
+    margin-bottom: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 11px;
+}
+.al-intro-tip-body {
+    color: #ecf0f1;
+}
+.al-intro-modal .btn {
+    margin-top: 16px;
+}
+
+.help-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 16px;
+    font-size: 13px;
+}
+.help-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+    color: #ecf0f1;
+}
+.help-table td:first-child {
+    width: 110px;
+    text-align: center;
+}
+.help-modal .btn,
+.history-modal .btn {
+    width: 100%;
+}
+
+.history-modal-sub {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 12px;
+    margin-bottom: 12px;
+}
+.history-list {
+    max-height: 50vh;
+    overflow-y: auto;
+    font-size: 12px;
+    font-family: monospace;
+}
+.history-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 8px;
+    padding: 6px 4px;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+}
+.history-item:last-child { border-bottom: none; }
+.history-task {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+.history-task.verify_pseudo {
+    background: rgba(52, 152, 219, 0.25);
+    color: #5dade2;
+}
+.history-task.label_hitl {
+    background: rgba(230, 126, 34, 0.25);
+    color: #f5b041;
+}
+.history-path {
+    color: #95a5a6;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.history-label {
+    font-weight: 600;
+    text-align: right;
+}
+.history-label.healthy,
+.history-label.correct { color: #2ecc71; }
+.history-label.unhealthy,
+.history-label.wrong { color: #e74c3c; }
+.history-label.skipped { color: #95a5a6; }
+.history-empty {
+    text-align: center;
+    color: var(--text-dim);
+    padding: 20px;
+}
+
+.kbd {
+    display: inline-block;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-family: monospace;
+    font-size: 11px;
+    color: #ecf0f1;
+    min-width: 16px;
+    text-align: center;
+}
+
+/* =========================================================================
    Active Learning mode (mode === "al")
    ========================================================================= */
 .main.al-mode {
