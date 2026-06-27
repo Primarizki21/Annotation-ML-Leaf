@@ -329,12 +329,12 @@ export class Renderer {
         var clusterInfo = '';
 
         if (p.task_type === 'verify_pseudo') {
-            taskLabel = 'VERIFY PSEUDO-LABEL';
+            taskLabel = 'VERIFIKASI PSEUDO-LABEL';
             taskColor = '#3498db';
-            action1Label = '&#10003; Correct';
+            action1Label = '&#10003; Benar';
             action1Class = 'btn-correct';
             action1Value = 'correct';
-            action2Label = '&#10007; Wrong';
+            action2Label = '&#10007; Salah';
             action2Class = 'btn-wrong';
             action2Value = 'wrong';
             var conf = (p.model_confidence !== null && p.model_confidence !== undefined)
@@ -343,22 +343,22 @@ export class Renderer {
                 ? p.model_margin.toFixed(3) : '?';
             modelBox =
                 '<div class="model-prediction-box">' +
-                    '<div class="model-prediction-label">Model prediction:</div>' +
+                    '<div class="model-prediction-label">Prediksi model:</div>' +
                     '<div class="model-prediction-value">' +
                         '<strong>' + escapeHtml(p.model_prediction || '?') + '</strong>' +
                     '</div>' +
                     '<div class="model-prediction-meta">' +
-                        'confidence: ' + conf + ' &nbsp;|&nbsp; ' +
+                        'keyakinan: ' + conf + ' &nbsp;|&nbsp; ' +
                         'margin: ' + margin +
                     '</div>' +
                 '</div>';
         } else if (p.task_type === 'label_hitl') {
-            taskLabel = 'LABEL HITL PATCH';
+            taskLabel = 'LABEL HITL — Label Manual';
             taskColor = '#e67e22';
-            action1Label = '&#10003; Healthy';
+            action1Label = '&#10003; Sehat';
             action1Class = 'btn-healthy';
             action1Value = 'healthy';
-            action2Label = '&#10007; Unhealthy';
+            action2Label = '&#10007; Tidak Sehat';
             action2Class = 'btn-unhealthy';
             action2Value = 'unhealthy';
             if (p.cluster_id !== null && p.cluster_id !== undefined) {
@@ -405,41 +405,81 @@ export class Renderer {
                 '</div>' +
             '</div>';
 
+        // Indonesian task instructions
+        var instructions = this._buildALInstructions(p, action1Label, action2Label);
+
         var html =
             '<div class="al-task-banner" style="background:' + taskColor + '">' +
                 taskLabel +
             '</div>' +
-            '<div class="al-center">' +
-                '<div class="al-class-info">' +
-                    '<span class="al-class-name">' + escapeHtml(p.class_name) + '</span>' +
-                    '<span class="al-split">' + escapeHtml(p.split) + '</span>' +
-                '</div>' +
-                modelBox +
-                clusterInfo +
-                '<div class="al-image-container">' +
-                    '<img class="al-patch-image" src="' + imgSrc + '" alt="Patch">' +
-                    '<div class="al-image-counter">' + (p.index + 1) + ' / ' + p.total + '</div>' +
-                '</div>' +
-                taskProgress +
-                '<div class="al-button-row">' +
-                    '<button class="btn ' + action1Class + '" data-al-action="' + action1Value + '">' +
-                        action1Label +
-                    '</button>' +
-                    '<button class="btn ' + action2Class + '" data-al-action="' + action2Value + '">' +
-                        action2Label +
-                    '</button>' +
-                    '<button class="btn btn-skip" data-al-action="skip">Skip</button>' +
-                '</div>' +
-                '<div class="al-history-row">' +
-                    '<button class="btn-undo" data-al-action="undo" ' + disabledAttr + '>' +
-                        '&#8592; Undo (note: undo reloads previous patch)' +
-                    '</button>' +
-                '</div>' +
+            instructions +
+            '<div class="al-class-info">' +
+                '<span class="al-class-name">' + escapeHtml(p.class_name) + '</span>' +
+                '<span class="al-split">' + escapeHtml(p.split) + '</span>' +
+            '</div>' +
+            modelBox +
+            clusterInfo +
+            '<div class="al-image-container">' +
+                '<img class="al-patch-image" src="' + imgSrc + '" alt="Patch">' +
+                '<div class="al-image-counter">' + (p.index + 1) + ' / ' + p.total + '</div>' +
+            '</div>' +
+            taskProgress +
+            '<div class="al-button-row">' +
+                '<button class="btn ' + action1Class + '" data-al-action="' + action1Value + '">' +
+                    action1Label +
+                '</button>' +
+                '<button class="btn ' + action2Class + '" data-al-action="' + action2Value + '">' +
+                    action2Label +
+                '</button>' +
+                '<button class="btn btn-skip" data-al-action="skip">Lewati (Skip)</button>' +
+            '</div>' +
+            '<div class="al-history-row">' +
+                '<button class="btn-undo" data-al-action="undo" ' + disabledAttr + '>' +
+                    '&#8592; Undo (note: undo reloads previous patch)' +
+                '</button>' +
             '</div>';
 
         this.mainContent.className = 'main al-mode';
         this.mainContent.innerHTML = html;
         this.attachALListeners();
+    }
+
+    _buildALInstructions(p, action1Label, action2Label) {
+        if (p.task_type === 'verify_pseudo') {
+            var pred = escapeHtml(p.model_prediction || '?');
+            var confPct = (p.model_confidence !== null && p.model_confidence !== undefined)
+                ? (p.model_confidence * 100).toFixed(1) + '%' : '?';
+            return '<div class="al-instructions" style="border-left: 4px solid #3498db;">' +
+                '<div class="al-instructions-title">Apa yang harus dilakukan?</div>' +
+                '<div class="al-instructions-body">' +
+                    'Model memprediksi patch ini sebagai <strong>' + pred + '</strong> ' +
+                    'dengan keyakinan <strong>' + confPct + '</strong>.<br>' +
+                    'Periksa dengan teliti, lalu konfirmasi:' +
+                '</div>' +
+                '<ul class="al-instructions-list">' +
+                    '<li><span class="al-instr-correct">&#10003; Benar</span> &rarr; Anda setuju dengan prediksi model</li>' +
+                    '<li><span class="al-instr-wrong">&#10007; Salah</span> &rarr; Model keliru, perlu perbaikan</li>' +
+                    '<li><span class="al-instr-skip">Lewati</span> &rarr; Tidak yakin, akan diulang</li>' +
+                '</ul>' +
+            '</div>';
+        }
+        if (p.task_type === 'label_hitl') {
+            return '<div class="al-instructions" style="border-left: 4px solid #e67e22;">' +
+                '<div class="al-instructions-title">Apa yang harus dilakukan?</div>' +
+                '<div class="al-instructions-body">' +
+                    'Model <strong>sangat tidak yakin</strong> dengan patch ini. ' +
+                    'Beri label manual dari awal berdasarkan kondisi daun yang terlihat.' +
+                '</div>' +
+                '<ul class="al-instructions-list">' +
+                    '<li><span class="al-instr-healthy">&#10003; Sehat</span> &rarr; Daun terlihat sehat (hijau, tidak bercak)</li>' +
+                    '<li><span class="al-instr-unhealthy">&#10007; Tidak Sehat</span> &rarr; Daun menunjukkan gejala penyakit</li>' +
+                    '<li><span class="al-instr-skip">Lewati</span> &rarr; Tidak yakin, akan diulang</li>' +
+                '</ul>' +
+            '</div>';
+        }
+        return '<div class="al-instructions" style="border-left: 4px solid #e74c3c;">' +
+            '<div class="al-instructions-title">Tugas tidak dikenal: ' + escapeHtml(p.task_type || '?') + '</div>' +
+        '</div>';
     }
 
     attachALListeners() {
@@ -461,6 +501,151 @@ export class Renderer {
         if (patchImg) {
             patchImg.addEventListener('error', function() { handleImageError(patchImg); });
         }
+    }
+
+    // AL layout helpers — used when 3-panel leaf context is shown for AL
+    buildALCenterPanelHTML(p) {
+        var imgSrc = '/image/' + p.patch_path;
+        var pct = ((p.index + 1) / p.total * 100).toFixed(1);
+        var disabledAttr = this.state.history.length === 0 ? 'disabled' : '';
+        var taskLabel, taskColor, action1Label, action1Class, action2Label, action2Class, action1Value, action2Value;
+        var modelBox = '';
+        var clusterInfo = '';
+
+        if (p.task_type === 'verify_pseudo') {
+            taskLabel = 'VERIFIKASI PSEUDO-LABEL';
+            taskColor = '#3498db';
+            action1Label = '&#10003; Benar';
+            action1Class = 'btn-correct';
+            action1Value = 'correct';
+            action2Label = '&#10007; Salah';
+            action2Class = 'btn-wrong';
+            action2Value = 'wrong';
+            var conf = (p.model_confidence !== null && p.model_confidence !== undefined)
+                ? p.model_confidence.toFixed(3) : '?';
+            var margin = (p.model_margin !== null && p.model_margin !== undefined)
+                ? p.model_margin.toFixed(3) : '?';
+            modelBox =
+                '<div class="model-prediction-box">' +
+                    '<div class="model-prediction-label">Prediksi model:</div>' +
+                    '<div class="model-prediction-value">' +
+                        '<strong>' + escapeHtml(p.model_prediction || '?') + '</strong>' +
+                    '</div>' +
+                    '<div class="model-prediction-meta">' +
+                        'keyakinan: ' + conf + ' &nbsp;|&nbsp; ' +
+                        'margin: ' + margin +
+                    '</div>' +
+                '</div>';
+        } else if (p.task_type === 'label_hitl') {
+            taskLabel = 'LABEL HITL — Label Manual';
+            taskColor = '#e67e22';
+            action1Label = '&#10003; Sehat';
+            action1Class = 'btn-healthy';
+            action1Value = 'healthy';
+            action2Label = '&#10007; Tidak Sehat';
+            action2Class = 'btn-unhealthy';
+            action2Value = 'unhealthy';
+            if (p.cluster_id !== null && p.cluster_id !== undefined) {
+                var cMargin = (p.cluster_margin !== null && p.cluster_margin !== undefined)
+                    ? p.cluster_margin.toFixed(4) : '?';
+                clusterInfo =
+                    '<div class="cluster-info-box">' +
+                        '<span class="cluster-info-label">Cluster #' + p.cluster_id + '</span>' +
+                        '<span class="cluster-info-meta">margin: ' + cMargin + ' (paling tidak yakin di klaster)</span>' +
+                    '</div>';
+            }
+        } else {
+            taskLabel = 'UNKNOWN TASK: ' + escapeHtml(p.task_type || '?');
+            taskColor = '#e74c3c';
+            action1Label = 'OK';
+            action1Class = 'btn-healthy';
+            action1Value = 'healthy';
+            action2Label = 'Bad';
+            action2Class = 'btn-unhealthy';
+            action2Value = 'unhealthy';
+        }
+
+        var verifyPct = (p.verify_total > 0)
+            ? (p.verify_done / p.verify_total * 100).toFixed(0) : 0;
+        var hitlPct = (p.hitl_total > 0)
+            ? (p.hitl_done / p.hitl_total * 100).toFixed(0) : 0;
+        var taskProgress =
+            '<div class="al-task-progress">' +
+                '<div class="al-task-row al-task-verify">' +
+                    '<span class="al-task-name">Verify pseudo</span>' +
+                    '<span class="al-task-counts">' + p.verify_done + ' / ' + p.verify_total + '</span>' +
+                    '<span class="al-task-pct">' + verifyPct + '%</span>' +
+                '</div>' +
+                '<div class="al-task-row al-task-hitl">' +
+                    '<span class="al-task-name">Label HITL</span>' +
+                    '<span class="al-task-counts">' + p.hitl_done + ' / ' + p.hitl_total + '</span>' +
+                    '<span class="al-task-pct">' + hitlPct + '%</span>' +
+                '</div>' +
+                '<div class="al-task-row al-task-total">' +
+                    '<span class="al-task-name">Total</span>' +
+                    '<span class="al-task-counts">' + p.annotated_count + ' / ' + (p.verify_total + p.hitl_total) + '</span>' +
+                    '<span class="al-task-pct">' + pct + '%</span>' +
+                '</div>' +
+            '</div>';
+
+        var instructions = this._buildALInstructions(p, action1Label, action2Label);
+
+        return '<div class="al-task-banner" style="background:' + taskColor + '">' +
+                taskLabel +
+            '</div>' +
+            instructions +
+            '<div class="al-class-info">' +
+                '<span class="al-class-name">' + escapeHtml(p.class_name) + '</span>' +
+                '<span class="al-split">' + escapeHtml(p.split) + '</span>' +
+            '</div>' +
+            modelBox +
+            clusterInfo +
+            '<div class="al-image-container">' +
+                '<img class="al-patch-image" src="' + imgSrc + '" alt="Patch">' +
+                '<div class="al-image-counter">' + (p.index + 1) + ' / ' + p.total + '</div>' +
+            '</div>' +
+            taskProgress +
+            '<div class="al-button-row">' +
+                '<button class="btn ' + action1Class + '" data-al-action="' + action1Value + '">' +
+                    action1Label +
+                '</button>' +
+                '<button class="btn ' + action2Class + '" data-al-action="' + action2Value + '">' +
+                    action2Label +
+                '</button>' +
+                '<button class="btn btn-skip" data-al-action="skip">Lewati (Skip)</button>' +
+            '</div>' +
+            '<div class="al-history-row">' +
+                '<button class="btn-undo" data-al-action="undo" ' + disabledAttr + '>' +
+                    '&#8592; Undo (note: undo reloads previous patch)' +
+                '</button>' +
+            '</div>' +
+            '<div class="patch-strip" id="patchStrip"></div>';
+    }
+
+    buildFullALLayout(p) {
+        this.mainContent.className = 'main al-mode-three-panel';
+        this.mainContent.innerHTML =
+            '<div class="panel panel-left" id="panelLeft">' +
+                '<div class="panel-header">Full Leaf</div>' +
+                '<div id="leafImageWrap"><div class="loading">Loading leaf...</div></div>' +
+            '</div>' +
+            '<div class="panel panel-center" id="panelCenter">' +
+                this.buildALCenterPanelHTML(p) +
+            '</div>' +
+            '<div class="panel panel-right" id="panelRight">' +
+                '<div class="panel-header">Leaf Overview</div>' +
+                '<div id="gridWrap"><div class="loading">Loading grid...</div></div>' +
+                '<div class="leaf-stats" id="leafStats"></div>' +
+            '</div>';
+        this.attachALListeners();
+    }
+
+    updateALCenterPanel(p) {
+        var center = document.getElementById('panelCenter');
+        if (center) {
+            center.innerHTML = this.buildALCenterPanelHTML(p);
+        }
+        this.attachALListeners();
     }
 
     showALDoneScreen() {

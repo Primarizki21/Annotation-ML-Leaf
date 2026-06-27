@@ -203,7 +203,7 @@ export class App {
                     }
                     this.state.currentPatch = data;
                     this.state.loading = false;
-                    this.renderer.renderALPatch(data);
+                    this.handleALLeafSwitch();
                 })
                 .catch((err) => {
                     console.error('Load AL error:', err);
@@ -226,6 +226,40 @@ export class App {
                 console.error('Load error:', err);
                 this.renderer.showToast('Gagal memuat patch.', 'error');
             });
+    }
+
+    async handleALLeafSwitch() {
+        var p = this.state.currentPatch;
+        if (!p) return;
+        var newStem = getLeafStem(p.patch_path);
+
+        if (newStem === this.state.currentLeafStem && this.state.leafContext) {
+            // Same leaf — only update center panel + grid overlay
+            this.renderer.updateProgress(p);
+            this.renderer.updateALCenterPanel(p);
+            this.state.markCurrentPatchInContext(p.patch_path);
+            this.renderer.renderRightPanel(this.state.leafContext);
+            this.renderer.renderPatchStrip(this.state.leafContext);
+        } else {
+            // Different leaf or first load — rebuild full 3-panel layout
+            this.state.currentLeafStem = newStem;
+            this.renderer.updateProgress(p);
+            this.renderer.buildFullALLayout(p);
+
+            try {
+                var ctx = await this.api.fetchLeafContext(p);
+                this.state.leafContext = ctx;
+                this.renderer.renderLeftPanel(ctx);
+                this.renderer.renderRightPanel(ctx);
+                this.renderer.renderPatchStrip(ctx);
+            } catch (err) {
+                console.error('Leaf context error:', err);
+                this.renderer.handleLeafContextError();
+                this.renderer.showToast('Gagal memuat konteks daun. Menampilkan tampilan ringkas.', 'warning');
+                // Fallback: build a single-column AL layout (the old style)
+                this.renderer.renderALPatch(p);
+            }
+        }
     }
 
     async handleLeafSwitch() {
@@ -351,7 +385,7 @@ export class App {
                 this.state.currentPatch = data;
                 this.state.loading = false;
                 if (this.state.mode === 'al') {
-                    this.renderer.renderALPatch(data);
+                    this.handleALLeafSwitch();
                 } else {
                     this.handleLeafSwitch();
                 }
@@ -375,7 +409,11 @@ export class App {
                 this.state.loading = false;
                 this.state.leafContext = null;
                 this.state.currentLeafStem = null;
-                this.handleLeafSwitch();
+                if (this.state.mode === 'al') {
+                    this.handleALLeafSwitch();
+                } else {
+                    this.handleLeafSwitch();
+                }
             })
             .catch((err) => {
                 this.state.loading = false;
@@ -392,7 +430,11 @@ export class App {
             .then((data) => {
                 this.state.currentPatch = data;
                 this.state.loading = false;
-                this.handleLeafSwitch();
+                if (this.state.mode === 'al') {
+                    this.handleALLeafSwitch();
+                } else {
+                    this.handleLeafSwitch();
+                }
             })
             .catch((err) => {
                 this.state.loading = false;

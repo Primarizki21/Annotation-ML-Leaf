@@ -509,6 +509,91 @@ body {
     gap: 16px;
 }
 
+/* AL mode with 3-panel leaf context (Phase 2.4) */
+.main.al-mode-three-panel {
+    display: grid;
+    grid-template-columns: 25% 50% 25%;
+    gap: 16px;
+    padding: 16px;
+    min-height: 0;
+}
+.main.al-mode-three-panel .panel-center {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+    max-height: calc(100vh - 100px);
+}
+.main.al-mode-three-panel .panel-center .al-task-banner {
+    width: 100%;
+    max-width: none;
+}
+@media (max-width: 1200px) {
+    .main.al-mode-three-panel {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+    }
+    .main.al-mode-three-panel .panel-center {
+        order: -1;
+        max-height: none;
+    }
+    .main.al-mode-three-panel .panel-left,
+    .main.al-mode-three-panel .panel-right {
+        max-height: 350px;
+    }
+}
+
+/* Indonesian task instructions (above the patch) */
+.al-instructions {
+    width: 100%;
+    background: #1a2533;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #ecf0f1;
+    line-height: 1.5;
+    margin-top: 4px;
+}
+.al-instructions-title {
+    font-weight: 600;
+    color: #f5d742;
+    margin-bottom: 4px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.al-instructions-body {
+    color: #bdc3c7;
+    margin-bottom: 6px;
+}
+.al-instructions-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.al-instructions-list li {
+    padding: 2px 0;
+    color: #ecf0f1;
+}
+.al-instr-correct,
+.al-instr-wrong,
+.al-instr-healthy,
+.al-instr-unhealthy,
+.al-instr-skip {
+    display: inline-block;
+    font-weight: 600;
+    min-width: 90px;
+}
+.al-instr-correct { color: #27ae60; }
+.al-instr-wrong { color: #c0392b; }
+.al-instr-healthy { color: #2ecc71; }
+.al-instr-unhealthy { color: #e74c3c; }
+.al-instr-skip { color: #95a5a6; }
+
 .al-task-banner {
     width: 100%;
     max-width: 720px;
