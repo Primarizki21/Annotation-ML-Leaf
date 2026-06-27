@@ -36,6 +36,7 @@ export class App {
         this.setupBtn = document.getElementById('setupBtn');
         this.annotatorNameEl = document.getElementById('annotatorName');
         this.reviewBtn = document.getElementById('reviewBtn');
+        this.alBtn = document.getElementById('alBtn');
 
         // Bind setup events
         this.setupBtn.addEventListener('click', () => this.doSetup());
@@ -45,6 +46,11 @@ export class App {
 
         // Review mode toggle
         this.reviewBtn.addEventListener('click', () => this.toggleReviewMode());
+
+        // AL mode toggle
+        if (this.alBtn) {
+            this.alBtn.addEventListener('click', () => this.toggleALMode());
+        }
 
         this.setupKeyboardShortcuts();
     }
@@ -77,6 +83,7 @@ export class App {
                         if (alBanner) alBanner.classList.add('hidden');
                     }
                     this.updateReviewButton(data.mode, data.has_disputed);
+                    this.updateALButton(data.mode, data.round);
                     this.setupModal.classList.add('hidden');
                     this.loadCurrentPatch();
                 } else {
@@ -98,6 +105,42 @@ export class App {
             this.reviewBtn.textContent = 'Review Disputed';
         } else {
             this.reviewBtn.style.display = 'none';
+        }
+    }
+
+    updateALButton(mode, round) {
+        if (!this.alBtn) return;
+        if (mode === 'al') {
+            this.alBtn.textContent = 'Exit AL';
+        } else {
+            this.alBtn.textContent = 'Active Learning' + (round ? ' R' + round : '');
+            this.alBtn.style.display = '';
+        }
+    }
+
+    toggleALMode() {
+        var name = this.state.annotatorName;
+        if (!name) {
+            name = prompt('Masukkan nama Anda:');
+            if (!name) return;
+        }
+        if (this.state.mode === 'al') {
+            // Exit AL mode -> back to normal
+            this.api.setupNormal(name)
+                .then(() => { window.location.reload(); })
+                .catch((err) => {
+                    alert('Gagal keluar AL mode: ' + (err.message || 'unknown error'));
+                });
+        } else {
+            // Enter AL mode -> ask for round (default 2)
+            var roundStr = prompt('Round berapa? (default: 2)', '2');
+            if (roundStr === null) return;
+            var round = parseInt(roundStr, 10) || 2;
+            this.api.setupAL(name, round)
+                .then(() => { window.location.reload(); })
+                .catch((err) => {
+                    alert('Gagal masuk AL mode: ' + (err.message || 'unknown error'));
+                });
         }
     }
 
@@ -279,24 +322,38 @@ export class App {
         if (!this.state.currentPatch || this.state.loading) return;
         this.state.loading = true;
 
-        this.api.skipPatch(this.state.currentPatch.patch_path)
-            .then((data) => {
-                this.state.updateCachedLeafLabel(this.state.currentPatch.patch_path, 'skipped');
-                this.renderer.showFlash('skip');
+        var patchPath = this.state.currentPatch.patch_path;
+        var skipPromise = (this.state.mode === 'al')
+            ? this.api.skipALPatch(patchPath)
+            : this.api.skipPatch(patchPath);
 
-                if (data.done) {
-                    this.state.done = true;
-                    this.renderer.showDoneScreen(this.state.mode);
+        skipPromise.then((data) => {
+            if (this.state.mode !== 'al') {
+                this.state.updateCachedLeafLabel(patchPath, 'skipped');
+            }
+            this.renderer.showFlash('skip');
+
+            if (data.done) {
+                this.state.done = true;
+                if (this.state.mode === 'al') {
+                    this.renderer.showALDoneScreen();
                 } else {
-                    this.state.currentPatch = data;
-                    this.state.loading = false;
+                    this.renderer.showDoneScreen(this.state.mode);
+                }
+            } else {
+                this.state.currentPatch = data;
+                this.state.loading = false;
+                if (this.state.mode === 'al') {
+                    this.renderer.renderALPatch(data);
+                } else {
                     this.handleLeafSwitch();
                 }
-            })
-            .catch((err) => {
-                this.state.loading = false;
-                console.error('Skip error:', err);
-            });
+            }
+        })
+        .catch((err) => {
+            this.state.loading = false;
+            console.error('Skip error:', err);
+        });
     }
 
     undo() {

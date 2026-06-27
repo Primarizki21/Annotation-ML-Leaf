@@ -746,6 +746,58 @@ async def api_annotate_al(req: ALAnnotateRequest):
     }
 
 
+@app.post("/api/skip-al")
+async def api_skip_al(req: SkipRequest):
+    config = load_config()
+    if not config or config.get("mode") != "al":
+        raise HTTPException(400, "AL mode not active")
+    name = config["name"]
+    session = sessions.get(name)
+    if not session:
+        raise HTTPException(400, "Session not found")
+    if session["current_index"] >= len(session["patch_list"]):
+        raise HTTPException(400, "No more AL patches")
+
+    patch = session["patch_list"][session["current_index"]]
+    if patch["patch_path"] != req.patch_path:
+        raise HTTPException(400, "Patch path mismatch")
+
+    now = datetime.now(timezone.utc).isoformat()
+    row = {
+        "patch_path": patch["patch_path"],
+        "class_name": patch["class_name"],
+        "split": patch["split"],
+        "task_type": patch["task_type"],
+        "label": "",
+        "is_correct": "",
+        "annotator": name,
+        "timestamp": now,
+        "is_skipped": "True",
+    }
+    append_al_csv(session["csv_path"], row)
+
+    session["skipped_set"].add(patch["patch_path"])
+    session["current_index"] += 1
+
+    if session["current_index"] >= len(session["patch_list"]):
+        return {"done": True, "message": "All AL patches processed!"}
+
+    next_patch = session["patch_list"][session["current_index"]]
+    return {
+        "done": False,
+        "patch_path": next_patch["patch_path"],
+        "class_name": next_patch["class_name"],
+        "split": next_patch["split"],
+        "task_type": next_patch["task_type"],
+        "model_prediction": next_patch.get("model_prediction"),
+        "model_confidence": next_patch.get("model_confidence"),
+        "model_margin": next_patch.get("model_margin"),
+        "index": session["current_index"],
+        "total": len(session["patch_list"]),
+        "annotated_count": session["annotated_count"],
+    }
+
+
 @app.get("/api/patch/current")
 async def api_patch_current():
     config = load_config()

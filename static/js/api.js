@@ -137,6 +137,17 @@ export class ApiClient {
         });
     }
 
+    skipALPatch(patchPath) {
+        return fetch('/api/skip-al', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({patch_path: patchPath})
+        }).then(function(res) {
+            if (!res.ok) throw new Error('AL skip failed');
+            return res.json();
+        });
+    }
+
     undo() {
         return fetch('/api/undo', {method: 'POST'}).then(function(res) {
             if (!res.ok) throw new Error('Undo failed');
