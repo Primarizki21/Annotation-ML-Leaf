@@ -88,15 +88,20 @@ app.add_middleware(ExceptionLoggingMiddleware)
 
 # Paths
 BASE_DIR = Path(__file__).parent
-# DATASET_DIR = BASE_DIR / "dataset_patches" # original patches
-DATASET_DIR = BASE_DIR / "dataset_consensus_only"
-DATASET_FILTERED_DIR = BASE_DIR / "dataset_filtered"
+DATASET_PATCHES_DIR = BASE_DIR / "dataset_patches"  # all 1.6M patches (AL + base)
+DATASET_DIR = BASE_DIR / "dataset_consensus_only"  # 1,174-leaf consensus subset
+DATASET_FILTERED_DIR = BASE_DIR / "dataset_filtered"  # raw leaf images
 ANNOTATIONS_DIR = BASE_DIR / "annotations"
 CONFIG_PATH = BASE_DIR / "annotator_config.json"
-# ASSIGNMENTS_PATH = BASE_DIR / "assignments.json" # original json
 ASSIGNMENTS_PATH = BASE_DIR / "assignments_consensus.json"
 CONSENSUS_REVIEW_CSV = BASE_DIR / "consensus_review_master.csv"
 PREDICTIONS_DIR = BASE_DIR / "predictions"  # active learning artifacts (AL mode)
+
+# Image lookup chain: try in order, first hit wins. Lets AL mode patches
+# (lives in dataset_patches) resolve even though /image/ is configured against
+# dataset_consensus_only. Existing friends without dataset_patches still work
+# (their files live in dataset_consensus_only / dataset_filtered).
+IMAGE_DIRS = (DATASET_PATCHES_DIR, DATASET_DIR, DATASET_FILTERED_DIR)
 
 # Ensure annotations directory exists
 ANNOTATIONS_DIR.mkdir(exist_ok=True)
@@ -1470,21 +1475,22 @@ async def api_jump_to_patch(patch_path: str):
     }
 
 
-def _serve_image_from(base_dir: Path, path: str):
-    file_path = base_dir / path
-    if not file_path.exists() or not file_path.is_file():
-        return Response(content=PLACEHOLDER_SVG, media_type="image/svg+xml")
-    return FileResponse(file_path)
+def _serve_image_from(path: str):
+    for base in IMAGE_DIRS:
+        file_path = base / path
+        if file_path.exists() and file_path.is_file():
+            return FileResponse(file_path)
+    return Response(content=PLACEHOLDER_SVG, media_type="image/svg+xml")
 
 
 @app.get("/image/{path:path}")
 async def serve_image(path: str):
-    return _serve_image_from(DATASET_DIR, path)
+    return _serve_image_from(path)
 
 
 @app.get("/raw-image/{path:path}")
 async def serve_raw_image(path: str):
-    return _serve_image_from(DATASET_FILTERED_DIR, path)
+    return _serve_image_from(path)
 
 
 if __name__ == "__main__":
