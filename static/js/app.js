@@ -254,6 +254,10 @@ export class App {
                 this.annotatorNameEl.textContent = data.name;
                 this.setupModal.classList.add('hidden');
                 this.loadCurrentPatch();
+                // Re-fetch full status (single source of truth) to ensure
+                // buttons show even if /api/setup response is incomplete
+                // (cached backend, future field drift, etc.)
+                this.init();
             })
             .catch((err) => {
                 this.setupError.textContent = err.message || 'Connection error';
