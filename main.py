@@ -604,6 +604,12 @@ async def startup_event():
     build_leaf_index()
     print(f"Leaf index built: {len(leaf_index)} leaves in {time.time()-t0:.1f}s",
           file=sys.stderr)
+    # Soft check: AL mode needs dataset_patches/ (gitignored, ~4.6 GB).
+    # If missing, AL images will be broken. Warn loudly so the user knows.
+    if not (BASE_DIR / "dataset_patches").exists():
+        print("[WARN] dataset_patches/ not found — AL mode images will "
+              "show broken icons. Mount the shared drive or symlink it.",
+              file=sys.stderr)
 
 
 # --- Page routes ---
