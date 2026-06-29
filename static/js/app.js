@@ -393,7 +393,7 @@ export class App {
                     } else {
                         this.state.currentPatch = data;
                         this.state.loading = false;
-                        this.renderer.renderALPatch(data);
+                        this.handleALLeafSwitch();
                     }
                 })
                 .catch((err) => {
