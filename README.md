@@ -29,6 +29,7 @@ Annotation-ML-Leaf/
 │
 ├── train_consensus_model.py         # Train EfficientNet-B0 (active learning)
 ├── predict_unlabeled_patches.py     # Predict labels for remaining patches
+├── active_learning_round.py         # AL pipeline (phases 1-5: select, compose, train)
 ├── filtering_gambar.py              # Filter source images by selected crops
 ├── patch_splitting.py               # Split source images into 32×32 patches
 │
@@ -38,24 +39,34 @@ Annotation-ML-Leaf/
 │   ├── index.html                   # Annotation interface
 │   └── dashboard.html               # Progress dashboard
 │
-├── dataset_patches/                 # Full patch dataset (source of truth)
+├── predictions/                     # Active learning artifacts
+│   ├── al_assignments_round{N}.json       # AL mode assignments per round (committed)
+│   ├── cluster_representatives_round{N}.json  # Cluster metadata for label_hitl (committed)
+│   ├── master_predictions_round{N}.csv    # Model predictions (gitignored — too large)
+│   └── embeddings_round{N}.npy            # Patch embeddings (gitignored — too large)
+│
+├── dataset_patches/                 # Full patch dataset (gitignored, source of truth)
 │   ├── train/needs_annotation/      # Training patches (22 classes)
 │   └── test/needs_annotation/       # Test patches (22 classes)
 │
-├── dataset_consensus_only/          # 5% consensus subset (what gets annotated)
+├── dataset_consensus_only/          # 5% consensus subset (gitignored, what gets annotated)
 │   └── train/needs_annotation/      # Sampled patches (22 classes)
 │
-├── dataset_filtered/                # Filtered source images for leaf context
+├── dataset_filtered/                # Filtered source images for leaf context (gitignored)
 │   └── raw/segmented/{class_name}/
 │
-├── annotations/                     # Per-annotator CSV files (output)
-├── models/                          # Trained model checkpoints
+├── annotations/                     # Per-annotator CSV files (gitignored, output)
+├── models/                          # Trained model checkpoints (gitignored)
 └── docs/
 ```
 
 ---
 
 ## Setup
+
+**For friends/annotators who only need to label patches:** skip to the
+[AL Mode for Annotators](#al-mode-for-annotators-friends) section below —
+you don't need most of the operator setup (extract, assign, train, etc.).
 
 ### Prerequisites
 
@@ -219,6 +230,68 @@ Loads the trained checkpoint and predicts labels for all patches in
 `dataset_patches/` that are not part of the consensus set. Output goes
 to `predictions/master_predictions.csv`.
 
+### Generate Round Assignments (Operator Only)
+
+```bash
+python active_learning_round.py --phase 2 generate --round 2
+```
+
+Produces `predictions/al_assignments_round2.json` (320 patches × 5
+annotators) and `cluster_representatives_round2.json`. Commit both
+files so annotators can `git pull` to start the next AL round.
+
+**Note:** annotators do NOT run this. The operator runs phases 1-5 and
+commits the assignments JSON.
+
+### AL Mode for Annotators (Friends)
+
+If you're a friend/annotator and only need to do AL annotation (not
+run the operator pipeline):
+
+1. **Pull latest code:**
+   ```bash
+   git pull
+   ```
+
+   This brings down `predictions/al_assignments_round2.json` and the
+   latest source code. Your local `annotations/` and `annotator_config.json`
+   are gitignored and remain untouched.
+
+2. **Ensure the shared drive is mounted.** AL mode needs
+   `dataset_patches/` (gitignored, ~4.6 GB) for patch images. The
+   shared drive typically has this. If it's not at the project root:
+   ```bash
+   ln -s /path/to/shared-drive/dataset_patches dataset_patches
+   ```
+   Without `dataset_patches/`, AL mode will show broken-image icons.
+   The server prints a `[WARN]` at startup if it's missing.
+
+3. **Run the app** (same as normal annotation):
+   ```bash
+   uv run uvicorn main:app --reload --host localhost --port 8000
+   ```
+
+   First startup takes ~20s while the leaf index is built. Subsequent
+   starts are faster (the lock is cached).
+
+4. **Enter your name** in the setup modal (must match
+   `assignments_consensus.json`).
+
+5. **Click "Active Learning"** in the top bar. The default round is 2
+   (`AL_DEFAULT_ROUND = 2` in `main.py`); the modal prompts you to
+   confirm or change it.
+
+6. **Annotate** — two task types alternate:
+   - **VERIFIKASI PSEUDO-LABEL** (blue banner): **Benar** / **Salah** —
+     validate the model's prediction
+   - **LABEL HITL** (orange banner): **Sehat** / **Tidak Sehat** —
+     label the patch manually (model was uncertain about this cluster)
+
+7. **Resumable.** Your local
+   `annotations/annotations_{name}_al_round{N}.csv` is gitignored.
+   Close the browser or restart the app anytime; your progress is
+   preserved. Re-opening AL mode picks up where you left off.
+
 ---
 
 ## Keyboard Shortcuts
@@ -247,11 +320,15 @@ train/needs_annotation/Tomato___Bacterial_spot/img.jpg,Tomato___Bacterial_spot,t
 |---------|---------|---------|
 | Full (dataset_patches) | 234,729 | 22 |
 | Consensus subset (dataset_consensus_only) | 34,611 | 22 |
+| AL round 2 (verify_pseudo + label_hitl, 5 annotators) | 320 | 22 |
 
 - **Consensus subset:** 5% random sample (per class) of diseased source
   leaves from the full dataset
 - **Full dataset:** all patches before consensus voting — used for final
   model training and prediction
+- **AL round 2:** 220 verify_pseudo + 100 label_hitl patches distributed
+  across 5 annotators; 87 are test split (used as gold-standard for
+  evaluating future complex models)
 
 ---
 
@@ -280,6 +357,21 @@ train/needs_annotation/Tomato___Bacterial_spot/img.jpg,Tomato___Bacterial_spot,t
 - Verify `dataset_consensus_only` folder exists
 - Run `python extract_consensus.py` if missing
 - Check folder permissions
+
+**AL mode shows broken-image icons for all patches**
+- AL mode needs `dataset_patches/` for the patch images (gitignored)
+- Normal/review modes use `dataset_consensus_only/` (different, smaller set)
+- Check the server log on startup for `[WARN] dataset_patches/ not found`
+- Fix: mount the shared drive, or create a symlink:
+  ```bash
+  ln -s /path/to/shared-drive/dataset_patches dataset_patches
+  ```
+
+**Server startup takes 20s on first run**
+- Eager leaf index build (34,795 leaves) on startup is intentional
+- Subsequent starts are fast (still 12-20s depending on disk speed)
+- To skip the eager build and use lazy build instead, comment out the
+  `build_leaf_index()` call in `startup_event` in `main.py`
 
 **Error installing torch with CUDA**
 - You don't need ML dependencies for annotation — skip `requirements-ml.txt`
