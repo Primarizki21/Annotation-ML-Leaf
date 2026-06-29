@@ -673,6 +673,8 @@ async def api_setup(req: SetupRequest):
     return {
         "setup": True,
         "name": name,
+        "mode": "normal",
+        "has_disputed": has_disputed_patches(),
         "total": session["total_original"],
         "annotated": session["annotated_count"],
     }
