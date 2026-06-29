@@ -26,7 +26,6 @@ export class State {
         this.loading = true;
         this.leafContext = null;
         this.currentLeafStem = null;
-        this.zoomLevel = 8;  // Phase 5.3: AL patch image zoom (1, 8, or 16)
     }
 
     updateCachedLeafLabel(patchPath, label) {
