@@ -86,6 +86,21 @@ class ExceptionLoggingMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(ExceptionLoggingMiddleware)
 
+
+class NoCacheStaticMiddleware(BaseHTTPMiddleware):
+    """Disable browser caching for /static/* so JS/CSS updates take effect
+    on the next normal refresh. Local annotator app — bandwidth is free."""
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        return response
+
+
+app.add_middleware(NoCacheStaticMiddleware)
+
 # Paths
 BASE_DIR = Path(__file__).parent
 DATASET_PATCHES_DIR = BASE_DIR / "dataset_patches"  # all 1.6M patches (AL + base)
