@@ -598,7 +598,12 @@ def backup_csv(csv_path: Path):
 
 @app.on_event("startup")
 async def startup_event():
-    print("Leaf index will be built on first request", file=sys.stderr)
+    import time
+    t0 = time.time()
+    print("Building leaf index on startup...", file=sys.stderr)
+    build_leaf_index()
+    print(f"Leaf index built: {len(leaf_index)} leaves in {time.time()-t0:.1f}s",
+          file=sys.stderr)
 
 
 # --- Page routes ---
