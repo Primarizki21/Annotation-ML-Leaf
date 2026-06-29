@@ -285,7 +285,7 @@ def init_session(name: str) -> dict:
             for img_file in sorted(folder_path.iterdir()):
                 if img_file.suffix.lower() in (".jpg", ".jpeg", ".png"):
                     patch_list.append({
-                        "path": f"{folder_rel}/{img_file.name}",
+                        "patch_path": f"{folder_rel}/{img_file.name}",
                         "class_name": class_name,
                         "split": split,
                     })
@@ -312,11 +312,11 @@ def init_session(name: str) -> dict:
             pass  # Corrupted CSV, start fresh
 
     # Filter out annotated (but keep skipped for re-annotation)
-    remaining = [p for p in patch_list if p["path"] not in annotated_set]
+    remaining = [p for p in patch_list if p["patch_path"] not in annotated_set]
 
     session = {
         "patch_list": remaining,
-        "path_to_index": {p["path"]: i for i, p in enumerate(remaining)},
+        "path_to_index": {p["patch_path"]: i for i, p in enumerate(remaining)},
         "current_index": 0,
         "history": [],
         "annotated_set": annotated_set,
@@ -349,7 +349,7 @@ def init_review_session(name: str) -> dict:
             pp = row["patch_path"]
             parts = pp.split("/")
             patch_list.append({
-                "path": pp,
+                "patch_path": pp,
                 "class_name": parts[2],
                 "split": parts[0],
             })
@@ -374,11 +374,11 @@ def init_review_session(name: str) -> dict:
         except Exception:
             pass
 
-    remaining = [p for p in patch_list if p["path"] not in annotated_set]
+    remaining = [p for p in patch_list if p["patch_path"] not in annotated_set]
 
     session = {
         "patch_list": remaining,
-        "path_to_index": {p["path"]: i for i, p in enumerate(remaining)},
+        "path_to_index": {p["patch_path"]: i for i, p in enumerate(remaining)},
         "current_index": 0,
         "history": [],
         "annotated_set": annotated_set,
@@ -493,6 +493,28 @@ def append_al_csv(csv_path: Path, row: dict) -> None:
         if not file_exists:
             writer.writeheader()
         writer.writerow(row)
+
+
+def rewrite_al_csv_without_last(csv_path: Path) -> None:
+    """Remove the last row from an AL annotator CSV (for undo)."""
+    if not csv_path.exists():
+        return
+    with open(csv_path, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+
+    if not rows:
+        return
+
+    rows.pop()  # Remove last
+
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=[
+            "patch_path", "class_name", "split", "task_type",
+            "label", "is_correct", "annotator", "timestamp", "is_skipped",
+        ])
+        writer.writeheader()
+        writer.writerows(rows)
 
 
 def has_disputed_patches() -> bool:
@@ -990,7 +1012,7 @@ async def api_patch_current():
     patch = session["patch_list"][session["current_index"]]
     return {
         "done": False,
-        "patch_path": patch["path"],
+        "patch_path": patch["patch_path"],
         "class_name": patch["class_name"],
         "split": patch["split"],
         "index": session["current_index"],
@@ -1013,13 +1035,13 @@ async def api_annotate(req: AnnotateRequest):
         raise HTTPException(400, "No more patches to annotate")
 
     patch = session["patch_list"][session["current_index"]]
-    if patch["path"] != req.patch_path:
+    if patch["patch_path"] != req.patch_path:
         raise HTTPException(400, "Patch path mismatch")
 
     # Save annotation
     now = datetime.now(timezone.utc).isoformat()
     row = {
-        "patch_path": patch["path"],
+        "patch_path": patch["patch_path"],
         "class_name": patch["class_name"],
         "split": patch["split"],
         "label": req.label,
@@ -1039,8 +1061,8 @@ async def api_annotate(req: AnnotateRequest):
         session["history"].pop(0)
 
     # Update state
-    session["annotated_set"].add(patch["path"])
-    session["label_map"][patch["path"]] = req.label
+    session["annotated_set"].add(patch["patch_path"])
+    session["label_map"][patch["patch_path"]] = req.label
     session["annotated_count"] += 1
     session["annotation_counter"] += 1
     session["current_index"] += 1
@@ -1057,7 +1079,7 @@ async def api_annotate(req: AnnotateRequest):
     next_patch = session["patch_list"][session["current_index"]]
     return {
         "done": False,
-        "patch_path": next_patch["path"],
+        "patch_path": next_patch["patch_path"],
         "class_name": next_patch["class_name"],
         "split": next_patch["split"],
         "index": session["current_index"],
@@ -1080,13 +1102,13 @@ async def api_skip(req: SkipRequest):
         raise HTTPException(400, "No more patches")
 
     patch = session["patch_list"][session["current_index"]]
-    if patch["path"] != req.patch_path:
+    if patch["patch_path"] != req.patch_path:
         raise HTTPException(400, "Patch path mismatch")
 
     # Save skip entry
     now = datetime.now(timezone.utc).isoformat()
     row = {
-        "patch_path": patch["path"],
+        "patch_path": patch["patch_path"],
         "class_name": patch["class_name"],
         "split": patch["split"],
         "label": "",
@@ -1096,8 +1118,8 @@ async def api_skip(req: SkipRequest):
     }
     append_csv(session["csv_path"], row)
 
-    session["skipped_set"].add(patch["path"])
-    session["label_map"][patch["path"]] = "skipped"
+    session["skipped_set"].add(patch["patch_path"])
+    session["label_map"][patch["patch_path"]] = "skipped"
     session["current_index"] += 1
 
     # Return next patch
@@ -1107,7 +1129,7 @@ async def api_skip(req: SkipRequest):
     next_patch = session["patch_list"][session["current_index"]]
     return {
         "done": False,
-        "patch_path": next_patch["path"],
+        "patch_path": next_patch["patch_path"],
         "class_name": next_patch["class_name"],
         "split": next_patch["split"],
         "index": session["current_index"],
@@ -1132,17 +1154,20 @@ async def api_undo():
     # Pop last annotation from history
     last = session["history"].pop()
 
-    # Rewrite CSV without last row
-    rewrite_csv_without_last(session["csv_path"])
+    # Rewrite CSV without last row (mode-aware to preserve fieldnames)
+    if session.get("mode") == "al":
+        rewrite_al_csv_without_last(session["csv_path"])
+    else:
+        rewrite_csv_without_last(session["csv_path"])
 
     # Restore state
     session["current_index"] = last["index"]
-    session["annotated_set"].discard(last["patch"]["path"])
-    session["label_map"].pop(last["patch"]["path"], None)
+    session["annotated_set"].discard(last["patch"]["patch_path"])
+    session["label_map"].pop(last["patch"]["patch_path"], None)
     session["annotated_count"] = max(0, session["annotated_count"] - 1)
 
     return {
-        "patch_path": last["patch"]["path"],
+        "patch_path": last["patch"]["patch_path"],
         "class_name": last["patch"]["class_name"],
         "split": last["patch"]["split"],
         "index": session["current_index"],
@@ -1166,7 +1191,7 @@ async def api_history():
     return {
         "history": [
             {
-                "patch_path": h["patch"]["path"],
+                "patch_path": h["patch"]["patch_path"],
                 "class_name": h["patch"]["class_name"],
                 "label": h["row"]["label"],
             }
@@ -1383,7 +1408,7 @@ async def api_leaf_context(split: str, class_name: str, leaf_stem: str):
         session = sessions.get(name)
         if session:
             if session["current_index"] < len(session["patch_list"]):
-                current_patch_path = session["patch_list"][session["current_index"]]["path"]
+                current_patch_path = session["patch_list"][session["current_index"]]["patch_path"]
             label_map = session["label_map"]
 
     patches_out = []
@@ -1436,7 +1461,7 @@ async def api_jump_to_patch(patch_path: str):
     p = session["patch_list"][idx]
     return {
         "done": False,
-        "patch_path": p["path"],
+        "patch_path": p["patch_path"],
         "class_name": p["class_name"],
         "split": p["split"],
         "index": idx,
