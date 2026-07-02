@@ -34,8 +34,9 @@ uv run active_learning_round.py --phase 4 --subcommand compose --round 2
 
 # 6. Train Round 2 model (wraps train_consensus_model.py)
 uv run active_learning_round.py --phase 5 --subcommand train --round 2
-#    -> saves to models/efficientnet_b0_round2/round2.pt
-#    -> by default fine-tunes from models/efficientnet_b0_consensus/efficientnet_b0_consensus.pt
+#    -> saves to models/round2/model.pt
+#    -> by default fine-tunes from models/round1/model.pt
+#       (or legacy models/efficientnet_b0_consensus/efficientnet_b0_consensus.pt)
 
 ============================================================================
 USAGE — Round 3 (and beyond) reusing the same code
@@ -43,7 +44,7 @@ USAGE — Round 3 (and beyond) reusing the same code
 # Bump --round to 3 — output paths auto-update to master_predictions_round3.csv
 # No need to pass --predictions-csv or --output; defaults follow --round.
 uv run active_learning_round.py --phase 1 --round 3 \\
-    --model models/efficientnet_b0_round2/round2.pt
+    --model models/round2/model.pt
 
 uv run active_learning_round.py --phase 2 --subcommand generate --round 3
 uv run active_learning_round.py --phase 3 --round 3
@@ -51,7 +52,7 @@ uv run active_learning_round.py --phase 3 --round 3
 uv run active_learning_round.py --phase 2 --subcommand verify --round 3
 uv run active_learning_round.py --phase 4 --subcommand compose --round 3
 uv run active_learning_round.py --phase 5 --subcommand train --round 3
-#    -> fine-tunes from models/efficientnet_b0_round2/round2.pt
+#    -> fine-tunes from models/round2/model.pt
 
 ============================================================================
 USAGE — Common flags
@@ -1507,8 +1508,7 @@ def _resolve_init_checkpoint(round_n: int) -> Path | None:
             if c.exists():
                 return c
         return None
-    candidate = BASE_DIR / "models" / \
-        f"efficientnet_b0_round{round_n - 1}" / f"round{round_n - 1}.pt"
+    candidate = BASE_DIR / "models" / f"round{round_n - 1}" / "model.pt"
     return candidate if candidate.exists() else None
 
 
@@ -1517,7 +1517,7 @@ def phase5_train(args):
 
     Invokes train_consensus_model.py as a subprocess to fine-tune
     EfficientNet-B0 on round{N}_dataset.csv. Saves the resulting
-    checkpoint to models/efficientnet_b0_round{N}/round{N}.pt.
+    checkpoint to models/round{N}/model.pt.
 
     By default, fine-tunes from the previous round's checkpoint
     (or Round 1's consensus model for Round 2). Pass
@@ -1525,8 +1525,8 @@ def phase5_train(args):
     """
     round_n = args.round
     round_dataset = BASE_DIR / f"round{round_n}_dataset.csv"
-    output_dir = BASE_DIR / "models" / f"efficientnet_b0_round{round_n}"
-    output_pt = output_dir / f"round{round_n}.pt"
+    output_dir = BASE_DIR / "models" / f"round{round_n}"
+    output_pt = output_dir / "model.pt"
 
     if not round_dataset.exists():
         raise FileNotFoundError(
