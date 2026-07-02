@@ -1,6 +1,11 @@
-fastapi>=0.136.3
-uvicorn>=0.48.0
-python-multipart>=0.0.30
-pandas>=3.0.3
-pillow>=12.2.0
-jinja2>=3.1.6
+fastapi==0.136.3
+uvicorn==0.48.0
+python-multipart==0.0.30
+jinja2==3.1.6
+pydantic==2.13.4
+starlette==1.2.1
+pandas==3.0.3
+pillow==12.2.0
+numpy==2.4.6
+matplotlib==3.11.0
+tqdm==4.67.3
