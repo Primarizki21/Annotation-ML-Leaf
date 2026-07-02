@@ -105,7 +105,7 @@ Phase 1 scope:
   - Auto-healthy rows included in CSV with hardcoded label=0, conf=1.0, margin=1.0.
   - Consensus-set patches excluded (already labeled in consensus_review_master.csv).
   - Output: master_predictions.csv with margin, top2, effective_threshold columns.
-  - Plots: 7 PNGs in predictions/plots/ (3 carried over + 4 new AL-specific).
+  - Plots: 7 PNGs in predictions/plots_round{N}/ (3 carried over + 4 new AL-specific).
 
 Phase 2 generate scope (Step 1 of active learning):
   - Reads: predictions/master_predictions.csv (from Phase 1)
@@ -463,7 +463,7 @@ def phase1_main(args):
 
     print("\nGenerating plots...")
     df = pd.read_csv(args.output)
-    plot_dir = args.output.parent / "plots"
+    plot_dir = args.output.parent / f"plots_round{args.round}"
     plot_dir.mkdir(parents=True, exist_ok=True)
 
     plot_confidence_distribution(df, plot_dir, default_threshold)
