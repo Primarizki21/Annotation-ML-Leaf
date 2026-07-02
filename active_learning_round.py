@@ -1493,13 +1493,22 @@ def _resolve_init_checkpoint(round_n: int) -> Path | None:
       - Round 2: Round 1 (consensus) model
       - Round N > 2: Round N-1 model
     Returns None if neither exists (caller will use ImageNet).
+
+    For Round 2, candidates are tried in order:
+      1. models/round1/model.pt                                       (current convention)
+      2. models/efficientnet_b0_consensus/efficientnet_b0_consensus.pt  (legacy)
     """
     if round_n == 2:
-        candidate = BASE_DIR / "models" / "efficientnet_b0_consensus" / \
-            "efficientnet_b0_consensus.pt"
-    else:
-        candidate = BASE_DIR / "models" / \
-            f"efficientnet_b0_round{round_n - 1}" / f"round{round_n - 1}.pt"
+        candidates = [
+            BASE_DIR / "models" / "round1" / "model.pt",
+            BASE_DIR / "models" / "efficientnet_b0_consensus" / "efficientnet_b0_consensus.pt",
+        ]
+        for c in candidates:
+            if c.exists():
+                return c
+        return None
+    candidate = BASE_DIR / "models" / \
+        f"efficientnet_b0_round{round_n - 1}" / f"round{round_n - 1}.pt"
     return candidate if candidate.exists() else None
 
 
