@@ -569,15 +569,20 @@ export class App {
                 return;
             }
 
-            switch (e.key.toLowerCase()) {
-                case 'h':
-                    e.preventDefault();
-                    this.annotate('healthy');
-                    break;
-                case 'u':
-                    e.preventDefault();
-                    this.annotate('unhealthy');
-                    break;
+            var key = e.key.toLowerCase();
+            if (key === 'h' || key === 'u') {
+                e.preventDefault();
+                // ponytail: keyboard handler harus aware task type — verify_pseudo pakai
+                // "correct"/"wrong", label_hitl pakai "healthy"/"unhealthy".
+                var cur = self.state.currentPatch;
+                if (!cur) return;
+                var alLabel = (cur.task_type === 'verify_pseudo')
+                    ? (key === 'h' ? 'correct' : 'wrong')
+                    : (key === 'h' ? 'healthy' : 'unhealthy');
+                self.annotate(alLabel);
+                return;
+            }
+            switch (key) {
                 case 's':
                     e.preventDefault();
                     this.skipPatch();
