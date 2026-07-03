@@ -46,17 +46,20 @@ which files to generate.
 
 VERDICT LOGIC
 -------------
-Verdict is based on 4 signals. ALL 4 must be met for STOP:
+Verdict is based on 5 signals. ALL 5 must be met for STOP:
 
   1. Fleiss' Kappa >= --stop-kappa          (default 0.81 = excellent)
   2. Zero class decisions == 'disabled'     (all commit or recheck)
   3. Val accuracy plateau                   (delta < --stop-acc-delta, default 0.005)
   4. Uncertain pool size < --stop-uncertain-pool  (default 50 patches with margin < 0.2)
+  5. Needs-review ratio < --stop-needs-review-ratio  (default 0.01 = 1% of applicable,
+     recomputed with per-class threshold from per_class_accuracy_roundN.json:
+       commit  -> 0.9, recheck -> 0.95, disabled -> excluded from denominator)
 
 Verdict mapping:
-  - 4 of 4 met       -> STOP         (exit 0)
-  - 2-3 of 4 met     -> INVESTIGATE  (exit 2; mixed signals, manual review)
-  - 0-1 of 4 met     -> CONTINUE     (exit 1; another round likely productive)
+  - 5 of 5 met       -> STOP         (exit 0)
+  - 2-4 of 5 met     -> INVESTIGATE  (exit 2; mixed signals, manual review)
+  - 0-1 of 5 met     -> CONTINUE     (exit 1; another round likely productive)
   - missing inputs   -> INVESTIGATE  (exit 2; round not complete)
 
 FLAGS
@@ -66,13 +69,14 @@ FLAGS
   --stop-kappa F             Kappa threshold for STOP (default: 0.81)
   --stop-acc-delta F         Val acc delta threshold for plateau (default: 0.005)
   --stop-uncertain-pool N    Uncertain pool size threshold (default: 50)
+  --stop-needs-review-ratio F  Needs-review ratio threshold (default: 0.01 = 1%)
   --margin-threshold F       Margin cutoff for "uncertain" (default: 0.2)
   --json                     Output JSON to stdout (programmatic use)
   -q, --quiet                Print verdict line only, no tables
 
 EXIT CODES
 ----------
-  0   STOP recommended (all 4 signals met)
+  0   STOP recommended (all 5 signals met)
   1   CONTINUE recommended (< 2 signals met)
   2   INVESTIGATE (mixed signals OR missing inputs)
 
@@ -104,7 +108,10 @@ MODELS_DIR = BASE_DIR / "models"
 DEFAULT_STOP_KAPPA = 0.81
 DEFAULT_STOP_ACC_DELTA = 0.005
 DEFAULT_STOP_UNCERTAIN_POOL = 50
+DEFAULT_STOP_NEEDS_REVIEW_RATIO = 0.01
 DEFAULT_MARGIN_THRESHOLD = 0.2
+# Per-class threshold constants (must match active_learning_round.py)
+AL_RECHECK_THRESHOLD = 0.95
 
 
 def load_per_class_accuracy(round_n: int) -> dict:
@@ -142,19 +149,68 @@ def count_uncertain_pools(round_n: int, margin_threshold: float) -> int:
     return count
 
 
+def compute_needs_review_ratio(round_n: int,
+                                per_class: dict,
+                                confidence_threshold: float = 0.9,
+                                recheck_threshold: float = AL_RECHECK_THRESHOLD
+                                ) -> tuple[float | None, list[str]]:
+    """Recompute needs_review with per-class thresholds from Phase 2 verify.
+
+    Per-class effective threshold:
+      commit   -> confidence_threshold (0.9)
+      recheck  -> recheck_threshold    (0.95)
+      disabled -> excluded from ratio (treated as not-applicable)
+
+    Returns (ratio, missing_inputs). ratio = needs_review / applicable_total.
+    Returns (None, [...]) if master_predictions CSV is missing.
+    """
+    path = PREDICTIONS_DIR / f"master_predictions_round{round_n}.csv"
+    if not path.exists():
+        return None, [f"predictions/master_predictions_round{round_n}.csv"]
+
+    class_decisions = per_class.get("class_decisions", {})
+    class_thr: dict[str, float | None] = {
+        cls: (recheck_threshold if d.get("decision") == "recheck"
+              else confidence_threshold if d.get("decision") == "commit"
+              else None)
+        for cls, d in class_decisions.items()
+    }
+
+    needs_review = 0
+    applicable = 0
+    with open(path, newline="") as f:
+        for row in csv.DictReader(f):
+            cls = row.get("class_name")
+            thr = class_thr.get(cls, confidence_threshold)
+            if thr is None:
+                continue
+            try:
+                if float(row.get("confidence", 1.0)) < thr:
+                    needs_review += 1
+                applicable += 1
+            except (ValueError, TypeError):
+                continue
+    return (needs_review / applicable if applicable > 0 else 0.0), []
+
+
 def compute_signals(round_n: int, margin_threshold: float) -> dict:
-    """Read all 3 input files and extract the 4 signals + missing-inputs list."""
+    """Read all 3 input files and extract the 5 signals + missing-inputs list."""
     per_class = load_per_class_accuracy(round_n)
     model = load_model_metrics(round_n)
     uncertain = count_uncertain_pools(round_n, margin_threshold)
+    needs_review_ratio, nr_missing = compute_needs_review_ratio(round_n, per_class)
 
     missing = []
     if not per_class:
         missing.append(f"predictions/per_class_accuracy_round{round_n}.json")
     if not model:
         missing.append(f"models/round{round_n}/model.json")
-    if uncertain < 0:
-        missing.append(f"predictions/master_predictions_round{round_n}.csv")
+    master_path = f"predictions/master_predictions_round{round_n}.csv"
+    if uncertain < 0 and master_path not in missing:
+        missing.append(master_path)
+    for m in nr_missing:
+        if m not in missing:
+            missing.append(m)
 
     class_decisions = per_class.get("class_decisions", {})
     n_disabled = sum(1 for d in class_decisions.values() if d == "disabled")
@@ -164,6 +220,7 @@ def compute_signals(round_n: int, margin_threshold: float) -> dict:
         "n_disabled": n_disabled,
         "val_accuracy": model.get("best_val_accuracy"),
         "uncertain_pool": uncertain if uncertain >= 0 else None,
+        "needs_review_ratio": needs_review_ratio,
         "missing_inputs": missing,
     }
 
@@ -177,6 +234,7 @@ def compute_verdict(signals: dict, thresholds: dict) -> str:
     n_disabled = signals.get("n_disabled", -1)
     val_acc = signals.get("val_accuracy")
     uncertain = signals.get("uncertain_pool")
+    needs_review = signals.get("needs_review_ratio")
     acc_delta = signals.get("acc_delta")
 
     flags = [
@@ -184,10 +242,11 @@ def compute_verdict(signals: dict, thresholds: dict) -> str:
         n_disabled == 0,
         acc_delta is not None and acc_delta < thresholds["acc_delta"],
         uncertain is not None and uncertain < thresholds["uncertain_pool"],
+        needs_review is not None and needs_review < thresholds["needs_review_ratio"],
     ]
     n_met = sum(1 for f in flags if f)
 
-    if n_met == 4:
+    if n_met == 5:
         return "stop"
     if n_met >= 2:
         return "investigate"
@@ -272,6 +331,16 @@ def format_text_output(round_n, signals, trend, verdict, thresholds):
     lines.append(f"  Uncertain pool:       {unc_str:<32} "
                  f"[threshold: < {thresholds['uncertain_pool']}, margin < {thresholds['margin']}]  "
                  f"{'PASS' if unc_pass else 'FAIL'}")
+
+    needs_review = signals.get("needs_review_ratio")
+    nr_pass = needs_review is not None and needs_review < thresholds["needs_review_ratio"]
+    if needs_review is not None:
+        nr_str = f"{needs_review * 100:.2f}% of applicable"
+    else:
+        nr_str = "N/A"
+    lines.append(f"  Needs-review ratio:   {nr_str:<32} "
+                 f"[threshold: < {thresholds['needs_review_ratio'] * 100:.0f}%, per-class threshold]  "
+                 f"{'PASS' if nr_pass else 'FAIL'}")
     lines.append("")
 
     if trend:
@@ -288,12 +357,12 @@ def format_text_output(round_n, signals, trend, verdict, thresholds):
                          f"{disabled_r:<10} {unc_r:<12}")
         lines.append("")
 
-    n_met = sum([kappa_pass, disabled_pass, plateau_pass, unc_pass])
-    lines.append(f"Stop signals met: {n_met} of 4")
+    n_met = sum([kappa_pass, disabled_pass, plateau_pass, unc_pass, nr_pass])
+    lines.append(f"Stop signals met: {n_met} of 5")
     lines.append("")
 
     verdict_messages = {
-        "stop": "All 4 signals met. AL has converged.",
+        "stop": "All 5 signals met. AL has converged.",
         "continue": "Less than 2 signals met. Another round likely productive.",
         "investigate": "Mixed signals. Manual review recommended.",
     }
@@ -310,12 +379,14 @@ def format_json_output(round_n, signals, verdict, thresholds, trend):
     val_acc = signals.get("val_accuracy")
     uncertain = signals.get("uncertain_pool")
     acc_delta = signals.get("acc_delta")
+    needs_review = signals.get("needs_review_ratio")
 
     flags = [
         kappa is not None and kappa >= thresholds["kappa"],
         n_disabled == 0,
         acc_delta is not None and acc_delta < thresholds["acc_delta"],
         uncertain is not None and uncertain < thresholds["uncertain_pool"],
+        needs_review is not None and needs_review < thresholds["needs_review_ratio"],
     ]
     n_met = sum(1 for f in flags if f)
 
@@ -333,6 +404,8 @@ def format_json_output(round_n, signals, verdict, thresholds, trend):
             "plateau_met": flags[2],
             "uncertain_pool": uncertain,
             "uncertain_pool_met": flags[3],
+            "needs_review_ratio": needs_review,
+            "needs_review_met": flags[4],
         },
         "n_stop_signals": n_met,
         "thresholds": thresholds,
@@ -354,7 +427,10 @@ def main():
     parser.add_argument("--stop-acc-delta", type=float, default=DEFAULT_STOP_ACC_DELTA,
                         help="Val acc delta plateau (default: 0.005)")
     parser.add_argument("--stop-uncertain-pool", type=int, default=DEFAULT_STOP_UNCERTAIN_POOL,
-                        help="Uncertain pool threshold (default: 50)")
+                        help="Uncertain pool threshold for STOP (default: 50)")
+    parser.add_argument("--stop-needs-review-ratio", type=float,
+                        default=DEFAULT_STOP_NEEDS_REVIEW_RATIO,
+                        help="Needs-review ratio threshold for STOP (default: 0.01 = 1%%)")
     parser.add_argument("--margin-threshold", type=float, default=DEFAULT_MARGIN_THRESHOLD,
                         help="Margin cutoff for uncertain (default: 0.2)")
     parser.add_argument("--json", action="store_true", dest="as_json",
@@ -367,6 +443,7 @@ def main():
         "kappa": args.stop_kappa,
         "acc_delta": args.stop_acc_delta,
         "uncertain_pool": args.stop_uncertain_pool,
+        "needs_review_ratio": args.stop_needs_review_ratio,
         "margin": args.margin_threshold,
     }
 
