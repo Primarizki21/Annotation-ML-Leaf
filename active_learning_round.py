@@ -55,6 +55,28 @@ uv run active_learning_round.py --phase 5 --subcommand train --round 3
 #    -> fine-tunes from models/round2/model.pt
 
 ============================================================================
+Cross-round design: clean-slate training (no data accumulation)
+============================================================================
+Each round's training set is composed independently from three sources:
+  - initial: consensus_round1_master.csv (the only consensus file; READ-ONLY,
+    never modified across rounds)
+  - pseudo:  predictions/pseudo_labeled_set_round{N}.csv (THIS round only)
+  - hitl:    predictions/hitl_annotated_round{N}.csv (THIS round only)
+
+Pseudo-labels and HITL annotations from previous rounds are INTENTIONALLY
+NOT included in the next round's training set. Knowledge from previous
+rounds is transferred via the model weights (init checkpoint =
+models/round{N-1}/model.pt), not via accumulated data. This avoids
+pseudo-label error compounding across rounds.
+
+To inspect round-N training composition:
+  pd.read_csv('round{N}_dataset.csv')['source'].value_counts()
+Expected breakdown:
+  initial:  ~30,357  (from consensus_round1)
+  pseudo:   variable (per-class capped, from THIS round's verify)
+  hitl:     variable (from THIS round's verify, 4/5+ agreement only)
+
+============================================================================
 USAGE — Common flags
 ============================================================================
   --phase N              1..5 (required)
@@ -181,6 +203,22 @@ AL_MIN_CLUSTER_SIZE = 5           # each cluster needs at least this many patche
 AL_DEFAULT_ANNOTATORS = ["Cinta", "Diaz", "Muna", "Oki", "Sarah"]
 
 
+def _resolve_default_model(round_n: int) -> Path:
+    """Default model for Phase 1 (inference) and Phase 3 (embeddings) of round N.
+
+      - Round 1 or 2: round 1 model (the consensus model that round 2 fine-tunes from)
+      - Round N >= 3: round (N-1) model (the freshly-trained model from the prior round)
+
+    Falls back to round 1 model if the expected checkpoint doesn't exist
+    (e.g. running Phase 3 of round 3 before Phase 5 of round 3 finishes).
+    """
+    if round_n <= 2:
+        candidate = BASE_DIR / "models" / "round1" / "model.pt"
+    else:
+        candidate = BASE_DIR / "models" / f"round{round_n - 1}" / "model.pt"
+    return candidate if candidate.exists() else BASE_DIR / "models" / "round1" / "model.pt"
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Active learning round pipeline for Plant Disease Detection"
@@ -193,13 +231,16 @@ def parse_args():
                              "--phase 4 (compose), or --phase 5 (train)")
     parser.add_argument("--round", type=int, default=AL_DEFAULT_ROUND,
                         help="Round number (default: 2)")
-    parser.add_argument("--model", type=Path, default=DEFAULT_MODEL)
+    parser.add_argument("--model", type=Path, default=None,
+                        help="Model checkpoint (default: round N-1 model, "
+                             "or round 1 model for round 1/2)")
     parser.add_argument("--patches-dir", type=Path, default=DEFAULT_PATCHES_DIR)
     parser.add_argument("--consensus-csv", type=Path, default=DEFAULT_CONSENSUS_CSV)
     parser.add_argument("--predictions-csv", type=Path, default=None,
-                        help="Input master predictions CSV (Phase 2/3/verify input, "
-                             "output of Phase 1). Default: "
-                             "predictions/master_predictions_round{N}.csv")
+                        help="WARNING: this flag is ONLY for Phase 2/3/verify "
+                             "(input CSV). Phase 1 IGNORES it silently — use "
+                             "--output to set the Phase 1 output path instead. "
+                             "Default: predictions/master_predictions_round{N}.csv")
     parser.add_argument("--output", type=Path, default=None,
                         help="Phase 1 output CSV. Default: "
                              "predictions/master_predictions_round{N}.csv")
@@ -350,6 +391,12 @@ def phase1_main(args):
     if args.output.suffix != ".csv":
         args.output = args.output / f"master_predictions_round{args.round}.csv"
 
+    print(f"  Round:                  {args.round}")
+    print(f"  Model:                  {args.model}")
+    print(f"  Output:                 {args.output}")
+    print(f"  Consensus CSV:          {args.consensus_csv}")
+    print(f"  Patches dir:            {args.patches_dir}")
+
     if args.output.exists():
         args.output.unlink()
 
@@ -475,6 +522,11 @@ def phase1_main(args):
     plot_uncertain_per_class(df, plot_dir, args.margin_threshold)
 
     print_phase1_summary(df, default_threshold, args.margin_threshold)
+
+    print(f"  Round:                  {args.round}")
+    print(f"\n  Next step:")
+    print(f"    uv run active_learning_round.py --phase 2 --subcommand generate "
+          f"--round {args.round}")
 
     print(f"\nDone. All outputs in: {args.output.parent}")
 
@@ -626,11 +678,13 @@ def phase2_generate(args):
     print(f"  Est. time per annotator: ~{est_minutes:.0f} min "
           f"(@ 10 sec/patch)")
     print(f"\n  Next steps:")
-    print(f"    1. Annotators open the web app (mode='al'), complete session")
+    print(f"    1. Phase 3 (add label_hitl via KMeans — MUST run BEFORE annotators):")
+    print(f"       uv run active_learning_round.py --phase 3 --round {round_n}")
+    print(f"    2. Annotators open the web app (mode='al'), complete session")
     print(f"       -> writes annotations/annotations_{{name}}_al_round{round_n}.csv")
-    print(f"    2. Run: python active_learning_round.py --phase 2 verify "
+    print(f"    3. Phase 2 verify (tally votes, output pseudo + HITL sets):")
+    print(f"       uv run active_learning_round.py --phase 2 --subcommand verify "
           f"--round {round_n}")
-    print(f"       -> reads annotator CSVs, outputs pseudo + HITL sets")
     print(f"{'=' * 65}")
 
 
@@ -974,7 +1028,8 @@ def phase2_verify(args):
     print(f"    {hitl_out}")
     print(f"    {per_class_out}")
     print(f"\n  Next step:")
-    print(f"    python active_learning_round.py --phase 4 compose --round {round_n}")
+    print(f"    uv run active_learning_round.py --phase 4 --subcommand compose "
+          f"--round {round_n}")
     print(f"    -> merges initial + pseudo + HITL into round{round_n}_dataset.csv")
     print(f"{'=' * 65}")
 
@@ -1231,7 +1286,7 @@ def phase3_select(args):
     print(f"    {assignments_path} (updated with {len(hitl_patches)} label_hitl)")
     print(f"\n  Next steps:")
     print(f"    1. Annotators open the web app (mode='al'), complete session")
-    print(f"    2. Run: python active_learning_round.py --phase 2 verify "
+    print(f"    2. Run: uv run active_learning_round.py --phase 2 --subcommand verify "
           f"--round {round_n}")
     print(f"{'=' * 65}")
 
@@ -1246,6 +1301,9 @@ AL_PSEUDO_CAP_MIN = 100      # minimum cap when initial+HITL = 0
 AL_PSEUDO_CAP_MAX = 1000     # hard cap to bound per-class pseudo count
 
 
+# NOTE: cross-round design is "clean-slate" — round{N}_dataset.csv contains
+#       only THIS round's pseudo + HITL, NOT previous rounds'. See module
+#       header docstring "Cross-round design" section for rationale.
 def phase4_compose(args):
     """Phase 4, subcommand: compose.
 
@@ -1468,7 +1526,8 @@ def phase4_compose(args):
                   f"total={int(row['total'])}")
 
     print(f"\n  Next step:")
-    print(f"    python active_learning_round.py --phase 5 train --round {round_n}")
+    print(f"    uv run active_learning_round.py --phase 5 --subcommand train "
+          f"--round {round_n}")
     print(f"    -> fine-tunes train_consensus_model.py on {output_path.name}")
     print(f"{'=' * 65}")
 
@@ -1590,14 +1649,22 @@ def phase5_train(args):
         print(f"  Checkpoint:     {output_pt} ({size_mb:.1f} MB)")
     else:
         print(f"  WARNING: expected checkpoint not found at {output_pt}")
-    print(f"\n  Round {round_n} is complete.")
-    print(f"\n  Next step (if iterating to Round {round_n + 1}):")
-    print(f"    1. Re-run --phase 1 with the new model:")
-    print(f"       python active_learning_round.py --phase 1 \\")
-    print(f"         --model {output_pt} \\")
-    print(f"         --predictions-csv predictions/master_predictions_round{round_n + 1}.csv")
-    print(f"    2. Then --phase 2 --subcommand generate / --phase 3 / --phase 2 --subcommand verify /")
-    print(f"       --phase 4 compose / --phase 5 train --round {round_n + 1}")
+    print(f"  Round: {round_n}  ->  {output_pt.name} ({size_mb:.1f} MB)")
+    print(f"\n  Next step (iterate to Round {round_n + 1}):")
+    print(f"    1. Re-run --phase 1 with the new model + new --round:")
+    print(f"       uv run active_learning_round.py --phase 1 "
+          f"--round {round_n + 1} --model {output_pt}")
+    print(f"    2. uv run active_learning_round.py --phase 2 --subcommand generate "
+          f"--round {round_n + 1}")
+    print(f"    3. uv run active_learning_round.py --phase 3 --round {round_n + 1}")
+    print(f"    4. [Annotators complete session in web app, mode='al']")
+    print(f"    5. uv run active_learning_round.py --phase 2 --subcommand verify "
+          f"--round {round_n + 1}")
+    print(f"    6. uv run active_learning_round.py --phase 4 --subcommand compose "
+          f"--round {round_n + 1}")
+    print(f"    7. uv run active_learning_round.py --phase 5 --subcommand train "
+          f"--round {round_n + 1}")
+    print(f"\n  Or evaluate before iterating: uv run stop_check.py --round {round_n}")
     print(f"{'=' * 65}")
 
 
@@ -1938,6 +2005,9 @@ def print_phase1_summary(df, default_threshold, margin_thr):
 
 def main():
     args = parse_args()
+
+    if args.model is None:
+        args.model = _resolve_default_model(args.round)
 
     if args.phase == 1:
         phase1_main(args)
