@@ -1,0 +1,812 @@
+{
+  "round": 3,
+  "k": 100,
+  "k_source": "compute_k(budget=100, pool=22748, n_classes=2, min_cluster_size=5)",
+  "budget": 100,
+  "n_uncertain_pool": 22748,
+  "max_cluster_pct": 0.0238,
+  "cluster_sizes": {
+    "0": 330,
+    "1": 412,
+    "2": 227,
+    "3": 206,
+    "4": 135,
+    "5": 158,
+    "6": 175,
+    "7": 87,
+    "8": 542,
+    "9": 472,
+    "10": 207,
+    "11": 175,
+    "12": 54,
+    "13": 269,
+    "14": 142,
+    "15": 85,
+    "16": 271,
+    "17": 224,
+    "18": 230,
+    "19": 90,
+    "20": 294,
+    "21": 116,
+    "22": 209,
+    "23": 282,
+    "24": 152,
+    "25": 261,
+    "26": 80,
+    "27": 277,
+    "28": 143,
+    "29": 166,
+    "30": 340,
+    "31": 201,
+    "32": 165,
+    "33": 346,
+    "34": 139,
+    "35": 385,
+    "36": 173,
+    "37": 311,
+    "38": 148,
+    "39": 133,
+    "40": 189,
+    "41": 428,
+    "42": 279,
+    "43": 63,
+    "44": 252,
+    "45": 165,
+    "46": 195,
+    "47": 487,
+    "48": 303,
+    "49": 271,
+    "50": 280,
+    "51": 182,
+    "52": 199,
+    "53": 76,
+    "54": 308,
+    "55": 61,
+    "56": 435,
+    "57": 260,
+    "58": 211,
+    "59": 116,
+    "60": 321,
+    "61": 278,
+    "62": 264,
+    "63": 247,
+    "64": 333,
+    "65": 219,
+    "66": 284,
+    "67": 275,
+    "68": 279,
+    "69": 285,
+    "70": 127,
+    "71": 142,
+    "72": 70,
+    "73": 292,
+    "74": 141,
+    "75": 417,
+    "76": 109,
+    "77": 278,
+    "78": 293,
+    "79": 229,
+    "80": 68,
+    "81": 127,
+    "82": 270,
+    "83": 374,
+    "84": 310,
+    "85": 245,
+    "86": 134,
+    "87": 119,
+    "88": 156,
+    "89": 392,
+    "90": 502,
+    "91": 63,
+    "92": 131,
+    "93": 218,
+    "94": 366,
+    "95": 165,
+    "96": 151,
+    "97": 95,
+    "98": 252,
+    "99": 155
+  },
+  "representatives": [
+    {
+      "cluster_id": 21,
+      "patch_path": "train/needs_annotation/Grape___Black_rot/305be5c1-b018-4597-ada2-aaba5ae44eef___FAM_B.Rot 3113_final_masked__r05_c03.jpg",
+      "class_name": "Grape___Black_rot",
+      "margin": 0.0,
+      "cluster_size": 116
+    },
+    {
+      "cluster_id": 27,
+      "patch_path": "train/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/050b52a2-3082-4b73-aee8-152756b42bfe___YLCV_GCREC 2185_final_masked__r04_c04.jpg",
+      "class_name": "Tomato___Tomato_Yellow_Leaf_Curl_Virus",
+      "margin": 1.4e-05,
+      "cluster_size": 277
+    },
+    {
+      "cluster_id": 35,
+      "patch_path": "test/needs_annotation/Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot/eb6de968-972f-4350-adb2-45196cf94252___RS_GLSp 7329_final_masked__r07_c04.jpg",
+      "class_name": "Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot",
+      "margin": 1.6e-05,
+      "cluster_size": 385
+    },
+    {
+      "cluster_id": 37,
+      "patch_path": "train/needs_annotation/Tomato___Septoria_leaf_spot/bac5c7de-e097-4d75-89a9-0b0f6343ad52___Matt.S_CG 6607_final_masked__r05_c01.jpg",
+      "class_name": "Tomato___Septoria_leaf_spot",
+      "margin": 1.6e-05,
+      "cluster_size": 311
+    },
+    {
+      "cluster_id": 20,
+      "patch_path": "train/needs_annotation/Tomato___Early_blight/605e0af6-415f-4e25-8f0d-a8f36371732b___RS_Erly.B 7827_final_masked__r04_c04.jpg",
+      "class_name": "Tomato___Early_blight",
+      "margin": 2.9e-05,
+      "cluster_size": 294
+    },
+    {
+      "cluster_id": 67,
+      "patch_path": "train/needs_annotation/Tomato___Bacterial_spot/e8fa0ef6-3af0-4cb1-b22b-0fe913ec014a___UF.GRC_BS_Lab Leaf 0277_final_masked__r06_c04.jpg",
+      "class_name": "Tomato___Bacterial_spot",
+      "margin": 3.9e-05,
+      "cluster_size": 275
+    },
+    {
+      "cluster_id": 48,
+      "patch_path": "train/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/daa42538-8e0a-425d-a2c1-3fa4cb3a0aa3___YLCV_GCREC 5516_final_masked__r06_c05.jpg",
+      "class_name": "Tomato___Tomato_Yellow_Leaf_Curl_Virus",
+      "margin": 5.6e-05,
+      "cluster_size": 303
+    },
+    {
+      "cluster_id": 62,
+      "patch_path": "test/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/c58fa24e-ff44-4b4a-9a13-4a1f05e2fab0___UF.GRC_YLCV_Lab 01379_final_masked__r02_c02.jpg",
+      "class_name": "Tomato___Tomato_Yellow_Leaf_Curl_Virus",
+      "margin": 5.9e-05,
+      "cluster_size": 264
+    },
+    {
+      "cluster_id": 64,
+      "patch_path": "train/needs_annotation/Squash___Powdery_mildew/fc21c623-0fb7-4ad0-b405-776a78500e9d___UMD_Powd.M 0504_final_masked__r05_c06.jpg",
+      "class_name": "Squash___Powdery_mildew",
+      "margin": 6.2e-05,
+      "cluster_size": 333
+    },
+    {
+      "cluster_id": 44,
+      "patch_path": "test/needs_annotation/Tomato___Septoria_leaf_spot/dfde75b3-9cba-4b76-85ce-df8fb517976a___JR_Sept.L.S 2716_final_masked__r05_c05.jpg",
+      "class_name": "Tomato___Septoria_leaf_spot",
+      "margin": 7.9e-05,
+      "cluster_size": 252
+    },
+    {
+      "cluster_id": 11,
+      "patch_path": "train/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/e346fbf7-5888-423a-b2c6-ff67dd1e3b3f___YLCV_GCREC 2166_final_masked__r05_c05.jpg",
+      "class_name": "Tomato___Tomato_Yellow_Leaf_Curl_Virus",
+      "margin": 9.6e-05,
+      "cluster_size": 175
+    },
+    {
+      "cluster_id": 8,
+      "patch_path": "train/needs_annotation/Tomato___Late_blight/814df7b9-2950-4628-a03c-bfae17a4f0a8___GHLB2 Leaf 146.1_final_masked__r00_c04.jpg",
+      "class_name": "Tomato___Late_blight",
+      "margin": 0.000104,
+      "cluster_size": 542
+    },
+    {
+      "cluster_id": 26,
+      "patch_path": "train/needs_annotation/Squash___Powdery_mildew/5437be87-2adb-45db-b983-a79bfa39c687___MD_Powd.M 9896_final_masked__r06_c07.jpg",
+      "class_name": "Squash___Powdery_mildew",
+      "margin": 0.000107,
+      "cluster_size": 80
+    },
+    {
+      "cluster_id": 17,
+      "patch_path": "train/needs_annotation/Tomato___Target_Spot/d43b9fb3-b824-456d-a386-b861689ae922___Com.G_TgS_FL 8286_final_masked__r03_c03.jpg",
+      "class_name": "Tomato___Target_Spot",
+      "margin": 0.000116,
+      "cluster_size": 224
+    },
+    {
+      "cluster_id": 56,
+      "patch_path": "train/needs_annotation/Tomato___Spider_mites Two-spotted_spider_mite/326a53b6-1d92-475a-9a30-4fc70754eacf___Com.G_SpM_FL 8883_final_masked__r05_c05.jpg",
+      "class_name": "Tomato___Spider_mites Two-spotted_spider_mite",
+      "margin": 0.000137,
+      "cluster_size": 435
+    },
+    {
+      "cluster_id": 46,
+      "patch_path": "train/needs_annotation/Tomato___Target_Spot/02da8ab6-7510-4bf7-a0e3-457f14b6adad___Com.G_TgS_FL 1022_final_masked__r03_c03.jpg",
+      "class_name": "Tomato___Target_Spot",
+      "margin": 0.00014,
+      "cluster_size": 195
+    },
+    {
+      "cluster_id": 9,
+      "patch_path": "train/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/743d6eb8-a7c4-4632-95f0-8ca346e6de2b___YLCV_GCREC 1975_final_masked__r01_c04.jpg",
+      "class_name": "Tomato___Tomato_Yellow_Leaf_Curl_Virus",
+      "margin": 0.00015,
+      "cluster_size": 472
+    },
+    {
+      "cluster_id": 18,
+      "patch_path": "train/needs_annotation/Corn_(maize)___Common_rust_/31d386fb-22bf-4293-ab03-8bc4882aca49___RS_Rust 2029_final_masked__r03_c06.jpg",
+      "class_name": "Corn_(maize)___Common_rust_",
+      "margin": 0.000157,
+      "cluster_size": 230
+    },
+    {
+      "cluster_id": 84,
+      "patch_path": "train/needs_annotation/Tomato___Early_blight/aca65de6-6464-4f8c-803d-b55f92f950f8___RS_Erly.B 6663_final_masked__r05_c03.jpg",
+      "class_name": "Tomato___Early_blight",
+      "margin": 0.000191,
+      "cluster_size": 310
+    },
+    {
+      "cluster_id": 85,
+      "patch_path": "train/needs_annotation/Tomato___Bacterial_spot/1a47b569-a868-4a45-ad81-eec12a9dae7a___GCREC_Bact.Sp 6148_final_masked__r03_c02.jpg",
+      "class_name": "Tomato___Bacterial_spot",
+      "margin": 0.000202,
+      "cluster_size": 245
+    },
+    {
+      "cluster_id": 75,
+      "patch_path": "test/needs_annotation/Tomato___Septoria_leaf_spot/04c912dc-3e26-43ff-a6e3-69de49a6e529___JR_Sept.L.S 8519_final_masked__r05_c04.jpg",
+      "class_name": "Tomato___Septoria_leaf_spot",
+      "margin": 0.00021,
+      "cluster_size": 417
+    },
+    {
+      "cluster_id": 73,
+      "patch_path": "train/needs_annotation/Tomato___Early_blight/03b7a13c-f5c0-44c4-beed-443841670e9a___RS_Erly.B 8225_final_masked__r06_c02.jpg",
+      "class_name": "Tomato___Early_blight",
+      "margin": 0.000221,
+      "cluster_size": 292
+    },
+    {
+      "cluster_id": 5,
+      "patch_path": "train/needs_annotation/Potato___Early_blight/8c1f94fb-d8e0-4607-a967-b71408dfd1ab___RS_Early.B 8723_final_masked__r04_c00.jpg",
+      "class_name": "Potato___Early_blight",
+      "margin": 0.000233,
+      "cluster_size": 158
+    },
+    {
+      "cluster_id": 0,
+      "patch_path": "train/needs_annotation/Grape___Black_rot/47590c82-1467-4008-a9a0-27d9f12bada5___FAM_B.Rot 0594_final_masked__r01_c04.jpg",
+      "class_name": "Grape___Black_rot",
+      "margin": 0.000247,
+      "cluster_size": 330
+    },
+    {
+      "cluster_id": 23,
+      "patch_path": "train/needs_annotation/Tomato___Bacterial_spot/85a1cefe-dfd8-4f9a-b852-da2aba419be7___GCREC_Bact.Sp 5658_final_masked__r04_c03.jpg",
+      "class_name": "Tomato___Bacterial_spot",
+      "margin": 0.000247,
+      "cluster_size": 282
+    },
+    {
+      "cluster_id": 90,
+      "patch_path": "train/needs_annotation/Tomato___Bacterial_spot/e0f17fdb-6487-4087-8e72-de93c881ebb2___GCREC_Bact.Sp 5719_final_masked__r02_c05.jpg",
+      "class_name": "Tomato___Bacterial_spot",
+      "margin": 0.000267,
+      "cluster_size": 502
+    },
+    {
+      "cluster_id": 79,
+      "patch_path": "test/needs_annotation/Corn_(maize)___Northern_Leaf_Blight/2e594c45-c4c7-43b1-ab19-100945e7a2a7___RS_NLB 4020 copy 3_final_masked__r02_c02.jpg",
+      "class_name": "Corn_(maize)___Northern_Leaf_Blight",
+      "margin": 0.000275,
+      "cluster_size": 229
+    },
+    {
+      "cluster_id": 89,
+      "patch_path": "train/needs_annotation/Tomato___Spider_mites Two-spotted_spider_mite/75c0988a-af10-4fd9-87d2-497f9773f4c7___Com.G_SpM_FL 1361_final_masked__r04_c05.jpg",
+      "class_name": "Tomato___Spider_mites Two-spotted_spider_mite",
+      "margin": 0.000286,
+      "cluster_size": 392
+    },
+    {
+      "cluster_id": 36,
+      "patch_path": "train/needs_annotation/Tomato___Spider_mites Two-spotted_spider_mite/5a5bbff6-4eae-4bda-ad08-f781109979cb___Com.G_SpM_FL 1175_final_masked__r05_c02.jpg",
+      "class_name": "Tomato___Spider_mites Two-spotted_spider_mite",
+      "margin": 0.000316,
+      "cluster_size": 173
+    },
+    {
+      "cluster_id": 93,
+      "patch_path": "train/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/cefb6cb4-bf0a-449d-aeac-8f960f6c1670___UF.GRC_YLCV_Lab 01356_final_masked__r04_c04.jpg",
+      "class_name": "Tomato___Tomato_Yellow_Leaf_Curl_Virus",
+      "margin": 0.000349,
+      "cluster_size": 218
+    },
+    {
+      "cluster_id": 69,
+      "patch_path": "train/needs_annotation/Grape___Leaf_blight_(Isariopsis_Leaf_Spot)/ed87e1a9-8433-4ba8-a025-241d14c559e2___FAM_L.Blight 4581_final_masked__r06_c04.jpg",
+      "class_name": "Grape___Leaf_blight_(Isariopsis_Leaf_Spot)",
+      "margin": 0.000358,
+      "cluster_size": 285
+    },
+    {
+      "cluster_id": 13,
+      "patch_path": "train/needs_annotation/Grape___Esca_(Black_Measles)/1597641f-db77-43c9-bd8c-912498c22b15___FAM_B.Msls 0966_final_masked__r05_c06.jpg",
+      "class_name": "Grape___Esca_(Black_Measles)",
+      "margin": 0.000361,
+      "cluster_size": 269
+    },
+    {
+      "cluster_id": 78,
+      "patch_path": "test/needs_annotation/Tomato___Target_Spot/6d8550bb-b43d-4e66-a5fc-f320110ad625___Com.G_TgS_FL 9905_final_masked__r06_c03.jpg",
+      "class_name": "Tomato___Target_Spot",
+      "margin": 0.000363,
+      "cluster_size": 293
+    },
+    {
+      "cluster_id": 83,
+      "patch_path": "train/needs_annotation/Tomato___Spider_mites Two-spotted_spider_mite/dc952b07-cb79-47e0-9bfe-48bda40fbbb9___Com.G_SpM_FL 9446_final_masked__r01_c04.jpg",
+      "class_name": "Tomato___Spider_mites Two-spotted_spider_mite",
+      "margin": 0.00039,
+      "cluster_size": 374
+    },
+    {
+      "cluster_id": 47,
+      "patch_path": "train/needs_annotation/Tomato___Late_blight/60196a6c-a134-4107-8178-d1bb47450cee___GHLB Leaf 23.1 Day 9_final_masked__r05_c02.jpg",
+      "class_name": "Tomato___Late_blight",
+      "margin": 0.000398,
+      "cluster_size": 487
+    },
+    {
+      "cluster_id": 29,
+      "patch_path": "train/needs_annotation/Corn_(maize)___Northern_Leaf_Blight/66045b64-9ade-42cc-b572-2683245d6816___RS_NLB 4074_final_masked__r02_c04.jpg",
+      "class_name": "Corn_(maize)___Northern_Leaf_Blight",
+      "margin": 0.000407,
+      "cluster_size": 166
+    },
+    {
+      "cluster_id": 28,
+      "patch_path": "train/needs_annotation/Potato___Late_blight/b340ff00-3d44-4394-90c5-797dc39f8389___RS_LB 4953_final_masked__r04_c03.jpg",
+      "class_name": "Potato___Late_blight",
+      "margin": 0.000414,
+      "cluster_size": 143
+    },
+    {
+      "cluster_id": 95,
+      "patch_path": "train/needs_annotation/Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot/c8769ca7-614a-4763-a8bc-8d7c7f1b2925___RS_GLSp 4355_final_masked__r06_c02.jpg",
+      "class_name": "Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot",
+      "margin": 0.000435,
+      "cluster_size": 165
+    },
+    {
+      "cluster_id": 22,
+      "patch_path": "train/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/d9df9ccb-0f9f-4f52-ac50-eda73b4804c8___YLCV_NREC 2414_final_masked__r04_c05.jpg",
+      "class_name": "Tomato___Tomato_Yellow_Leaf_Curl_Virus",
+      "margin": 0.000456,
+      "cluster_size": 209
+    },
+    {
+      "cluster_id": 34,
+      "patch_path": "train/needs_annotation/Tomato___Target_Spot/fd53a3e2-4153-4b4a-9c27-3535125626c8___Com.G_TgS_FL 9962_final_masked__r05_c01.jpg",
+      "class_name": "Tomato___Target_Spot",
+      "margin": 0.000477,
+      "cluster_size": 139
+    },
+    {
+      "cluster_id": 68,
+      "patch_path": "test/needs_annotation/Tomato___Spider_mites Two-spotted_spider_mite/646aa524-ba89-4228-bd91-16d693ff1283___Com.G_SpM_FL 8835_final_masked__r06_c05.jpg",
+      "class_name": "Tomato___Spider_mites Two-spotted_spider_mite",
+      "margin": 0.000479,
+      "cluster_size": 279
+    },
+    {
+      "cluster_id": 88,
+      "patch_path": "train/needs_annotation/Corn_(maize)___Common_rust_/2efdbf60-8ee8-41f3-8c3c-c8b44ade28dd___RS_Rust 2025_final_masked__r02_c05.jpg",
+      "class_name": "Corn_(maize)___Common_rust_",
+      "margin": 0.000479,
+      "cluster_size": 156
+    },
+    {
+      "cluster_id": 76,
+      "patch_path": "test/needs_annotation/Tomato___Early_blight/87725f1b-be8c-42b8-8eed-671b0c52276d___RS_Erly.B 7431_final_masked__r01_c05.jpg",
+      "class_name": "Tomato___Early_blight",
+      "margin": 0.000483,
+      "cluster_size": 109
+    },
+    {
+      "cluster_id": 12,
+      "patch_path": "train/needs_annotation/Corn_(maize)___Northern_Leaf_Blight/931b2ec6-2ed7-4a70-8309-7bce6a01d0fd___RS_NLB 3757_final_masked__r04_c03.jpg",
+      "class_name": "Corn_(maize)___Northern_Leaf_Blight",
+      "margin": 0.000495,
+      "cluster_size": 54
+    },
+    {
+      "cluster_id": 50,
+      "patch_path": "train/needs_annotation/Tomato___Late_blight/0c192fbe-38eb-4abb-a858-8bc39942a3ef___RS_Late.B 6076_final_masked__r07_c03.jpg",
+      "class_name": "Tomato___Late_blight",
+      "margin": 0.000525,
+      "cluster_size": 280
+    },
+    {
+      "cluster_id": 54,
+      "patch_path": "test/needs_annotation/Tomato___Target_Spot/8d5ad6d9-7070-4022-a423-6812a09823f5___Com.G_TgS_FL 1029_final_masked__r03_c03.jpg",
+      "class_name": "Tomato___Target_Spot",
+      "margin": 0.000539,
+      "cluster_size": 308
+    },
+    {
+      "cluster_id": 99,
+      "patch_path": "train/needs_annotation/Squash___Powdery_mildew/92f5d308-47e1-44f6-99f7-c5aa45e8cc8c___UMD_Powd.M 0696_final_masked__r04_c01.jpg",
+      "class_name": "Squash___Powdery_mildew",
+      "margin": 0.000554,
+      "cluster_size": 155
+    },
+    {
+      "cluster_id": 45,
+      "patch_path": "train/needs_annotation/Tomato___Bacterial_spot/ed5db820-e84c-40ad-bee2-22835caa8e39___GCREC_Bact.Sp 3707_final_masked__r00_c04.jpg",
+      "class_name": "Tomato___Bacterial_spot",
+      "margin": 0.000567,
+      "cluster_size": 165
+    },
+    {
+      "cluster_id": 14,
+      "patch_path": "train/needs_annotation/Tomato___Tomato_mosaic_virus/c2bad1f4-959c-4c08-bd0e-ee2f91640632___PSU_CG 2325_final_masked__r06_c04.jpg",
+      "class_name": "Tomato___Tomato_mosaic_virus",
+      "margin": 0.000574,
+      "cluster_size": 142
+    },
+    {
+      "cluster_id": 1,
+      "patch_path": "train/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/62b6281e-3bc1-4677-9b4f-3e59396641c8___YLCV_NREC 2566_final_masked__r02_c03.jpg",
+      "class_name": "Tomato___Tomato_Yellow_Leaf_Curl_Virus",
+      "margin": 0.000615,
+      "cluster_size": 412
+    },
+    {
+      "cluster_id": 30,
+      "patch_path": "test/needs_annotation/Corn_(maize)___Northern_Leaf_Blight/6578fc09-44ed-4f4b-8ba9-d420a169e824___RS_NLB 3983_final_masked__r06_c00.jpg",
+      "class_name": "Corn_(maize)___Northern_Leaf_Blight",
+      "margin": 0.000618,
+      "cluster_size": 340
+    },
+    {
+      "cluster_id": 51,
+      "patch_path": "train/needs_annotation/Potato___Late_blight/b2492a9e-c038-48a7-8524-8f0aca7dc870___RS_LB 4291_final_masked__r03_c03.jpg",
+      "class_name": "Potato___Late_blight",
+      "margin": 0.000651,
+      "cluster_size": 182
+    },
+    {
+      "cluster_id": 2,
+      "patch_path": "train/needs_annotation/Tomato___Septoria_leaf_spot/181ba21a-dd6f-4f26-b279-6734d3579449___Matt.S_CG 7593_final_masked__r04_c03.jpg",
+      "class_name": "Tomato___Septoria_leaf_spot",
+      "margin": 0.000713,
+      "cluster_size": 227
+    },
+    {
+      "cluster_id": 32,
+      "patch_path": "train/needs_annotation/Grape___Leaf_blight_(Isariopsis_Leaf_Spot)/93467d1b-4121-4b65-804f-299fbe993eac___FAM_L.Blight 4708_final_masked__r03_c06.jpg",
+      "class_name": "Grape___Leaf_blight_(Isariopsis_Leaf_Spot)",
+      "margin": 0.00072,
+      "cluster_size": 165
+    },
+    {
+      "cluster_id": 94,
+      "patch_path": "train/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/2a276c6e-c072-4cc8-a1ff-8de64e4b8548___UF.GRC_YLCV_Lab 01361_final_masked__r02_c03.jpg",
+      "class_name": "Tomato___Tomato_Yellow_Leaf_Curl_Virus",
+      "margin": 0.000789,
+      "cluster_size": 366
+    },
+    {
+      "cluster_id": 49,
+      "patch_path": "train/needs_annotation/Tomato___Late_blight/f5261645-e84e-433a-8edb-ff53e8586646___GHLB2 Leaf 143.1_final_masked__r03_c02.jpg",
+      "class_name": "Tomato___Late_blight",
+      "margin": 0.000815,
+      "cluster_size": 271
+    },
+    {
+      "cluster_id": 58,
+      "patch_path": "test/needs_annotation/Grape___Leaf_blight_(Isariopsis_Leaf_Spot)/65a918cd-495a-4c1c-88be-cff9d081ca1b___FAM_L.Blight 4680_final_masked__r06_c04.jpg",
+      "class_name": "Grape___Leaf_blight_(Isariopsis_Leaf_Spot)",
+      "margin": 0.000846,
+      "cluster_size": 211
+    },
+    {
+      "cluster_id": 57,
+      "patch_path": "test/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/43a5145b-57e9-4605-8ba3-1fb90f61d460___YLCV_NREC 0108_final_masked__r01_c04.jpg",
+      "class_name": "Tomato___Tomato_Yellow_Leaf_Curl_Virus",
+      "margin": 0.000856,
+      "cluster_size": 260
+    },
+    {
+      "cluster_id": 16,
+      "patch_path": "train/needs_annotation/Grape___Leaf_blight_(Isariopsis_Leaf_Spot)/f482d5dc-d304-425b-9aab-496177ff35af___FAM_L.Blight 4633_final_masked__r02_c02.jpg",
+      "class_name": "Grape___Leaf_blight_(Isariopsis_Leaf_Spot)",
+      "margin": 0.000882,
+      "cluster_size": 271
+    },
+    {
+      "cluster_id": 65,
+      "patch_path": "train/needs_annotation/Tomato___Early_blight/ca7035fa-f55d-49c7-9d89-3d513c8e35b1___RS_Erly.B 7556_final_masked__r01_c02.jpg",
+      "class_name": "Tomato___Early_blight",
+      "margin": 0.000972,
+      "cluster_size": 219
+    },
+    {
+      "cluster_id": 25,
+      "patch_path": "test/needs_annotation/Tomato___Septoria_leaf_spot/06778fed-2b98-49b1-a9d3-d57765586a3f___Matt.S_CG 2795_final_masked__r07_c03.jpg",
+      "class_name": "Tomato___Septoria_leaf_spot",
+      "margin": 0.000991,
+      "cluster_size": 261
+    },
+    {
+      "cluster_id": 53,
+      "patch_path": "train/needs_annotation/Squash___Powdery_mildew/9c8c3689-c6d5-4fe7-8b68-804654276875___MD_Powd.M 1043_final_masked__r07_c07.jpg",
+      "class_name": "Squash___Powdery_mildew",
+      "margin": 0.001082,
+      "cluster_size": 76
+    },
+    {
+      "cluster_id": 3,
+      "patch_path": "train/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/e3f897ce-c28f-4a16-b655-5ea6b07f1b35___YLCV_NREC 2395_final_masked__r02_c01.jpg",
+      "class_name": "Tomato___Tomato_Yellow_Leaf_Curl_Virus",
+      "margin": 0.001172,
+      "cluster_size": 206
+    },
+    {
+      "cluster_id": 42,
+      "patch_path": "test/needs_annotation/Potato___Late_blight/e749122f-0dcc-4613-87a9-5347a51a7b58___RS_LB 4409_final_masked__r06_c05.jpg",
+      "class_name": "Potato___Late_blight",
+      "margin": 0.001178,
+      "cluster_size": 279
+    },
+    {
+      "cluster_id": 55,
+      "patch_path": "train/needs_annotation/Grape___Esca_(Black_Measles)/83691e0b-04e0-4a8f-bf76-0924614c4ce6___FAM_B.Msls 0943_final_masked__r07_c04.jpg",
+      "class_name": "Grape___Esca_(Black_Measles)",
+      "margin": 0.001188,
+      "cluster_size": 61
+    },
+    {
+      "cluster_id": 66,
+      "patch_path": "train/needs_annotation/Corn_(maize)___Common_rust_/6dbd8134-e8f8-49a0-ba19-7134ff41c598___RS_Rust 2114_final_masked__r01_c02.jpg",
+      "class_name": "Corn_(maize)___Common_rust_",
+      "margin": 0.001266,
+      "cluster_size": 284
+    },
+    {
+      "cluster_id": 61,
+      "patch_path": "test/needs_annotation/Tomato___Target_Spot/d1a9ea23-47c5-49ee-98e6-1e6b76fca991___Com.G_TgS_FL 9952_final_masked__r02_c03.jpg",
+      "class_name": "Tomato___Target_Spot",
+      "margin": 0.001282,
+      "cluster_size": 278
+    },
+    {
+      "cluster_id": 19,
+      "patch_path": "train/needs_annotation/Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot/4be4a686-ab64-43d7-9d7c-0939e389aac9___RS_GLSp 9338_final_masked__r00_c07.jpg",
+      "class_name": "Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot",
+      "margin": 0.001301,
+      "cluster_size": 90
+    },
+    {
+      "cluster_id": 6,
+      "patch_path": "train/needs_annotation/Grape___Black_rot/7df2a430-5b23-4c2c-9268-a0de52733c39___FAM_B.Rot 0356_final_masked__r03_c07.jpg",
+      "class_name": "Grape___Black_rot",
+      "margin": 0.001343,
+      "cluster_size": 175
+    },
+    {
+      "cluster_id": 60,
+      "patch_path": "train/needs_annotation/Grape___Esca_(Black_Measles)/41f42bf8-8120-4535-be6b-a36b52978502___FAM_B.Msls 1329_final_masked__r07_c02.jpg",
+      "class_name": "Grape___Esca_(Black_Measles)",
+      "margin": 0.001398,
+      "cluster_size": 321
+    },
+    {
+      "cluster_id": 77,
+      "patch_path": "train/needs_annotation/Tomato___Leaf_Mold/0e508a3f-af06-4c8a-be78-5c38d2d4fb68___Crnl_L.Mold 6775_final_masked__r03_c05.jpg",
+      "class_name": "Tomato___Leaf_Mold",
+      "margin": 0.001536,
+      "cluster_size": 278
+    },
+    {
+      "cluster_id": 52,
+      "patch_path": "train/needs_annotation/Corn_(maize)___Northern_Leaf_Blight/8c3fa556-9a06-4f43-bfe6-17bcfabb1d8e___RS_NLB 0809_final_masked__r02_c03.jpg",
+      "class_name": "Corn_(maize)___Northern_Leaf_Blight",
+      "margin": 0.001625,
+      "cluster_size": 199
+    },
+    {
+      "cluster_id": 97,
+      "patch_path": "train/needs_annotation/Potato___Early_blight/8f3f9eed-1a3d-4f0f-adcc-0fe3a832d95f___RS_Early.B 8518_final_masked__r05_c01.jpg",
+      "class_name": "Potato___Early_blight",
+      "margin": 0.001631,
+      "cluster_size": 95
+    },
+    {
+      "cluster_id": 41,
+      "patch_path": "train/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/f6bfc52d-f4c7-410b-a867-04691d15df30___YLCV_NREC 2595_final_masked__r03_c03.jpg",
+      "class_name": "Tomato___Tomato_Yellow_Leaf_Curl_Virus",
+      "margin": 0.001699,
+      "cluster_size": 428
+    },
+    {
+      "cluster_id": 86,
+      "patch_path": "train/needs_annotation/Tomato___Bacterial_spot/90cbe307-2ec6-45f8-b62d-b6fb602466f4___UF.GRC_BS_Lab Leaf 8592_final_masked__r03_c02.jpg",
+      "class_name": "Tomato___Bacterial_spot",
+      "margin": 0.00176,
+      "cluster_size": 134
+    },
+    {
+      "cluster_id": 71,
+      "patch_path": "test/needs_annotation/Tomato___Tomato_mosaic_virus/696758e5-0f10-4599-b596-e9e7566c4791___PSU_CG 2062_final_masked__r05_c05.jpg",
+      "class_name": "Tomato___Tomato_mosaic_virus",
+      "margin": 0.001844,
+      "cluster_size": 142
+    },
+    {
+      "cluster_id": 10,
+      "patch_path": "test/needs_annotation/Potato___Early_blight/1a38f06b-da2a-4c57-bef1-a73254896403___RS_Early.B 9178_final_masked__r04_c06.jpg",
+      "class_name": "Potato___Early_blight",
+      "margin": 0.001956,
+      "cluster_size": 207
+    },
+    {
+      "cluster_id": 33,
+      "patch_path": "train/needs_annotation/Tomato___Spider_mites Two-spotted_spider_mite/f03d3d30-cc06-48e0-9a8f-978f705cc2e8___Com.G_SpM_FL 1278_final_masked__r06_c02.jpg",
+      "class_name": "Tomato___Spider_mites Two-spotted_spider_mite",
+      "margin": 0.002229,
+      "cluster_size": 346
+    },
+    {
+      "cluster_id": 81,
+      "patch_path": "train/needs_annotation/Tomato___Late_blight/39535fa7-1b38-4828-9294-da1c24aa33ef___RS_Late.B 6901_final_masked__r03_c03.jpg",
+      "class_name": "Tomato___Late_blight",
+      "margin": 0.002346,
+      "cluster_size": 127
+    },
+    {
+      "cluster_id": 43,
+      "patch_path": "train/needs_annotation/Tomato___Leaf_Mold/46cb40a7-b7f5-428c-91a3-121085ec73b5___Crnl_L.Mold 9116_final_masked__r04_c00.jpg",
+      "class_name": "Tomato___Leaf_Mold",
+      "margin": 0.002371,
+      "cluster_size": 63
+    },
+    {
+      "cluster_id": 39,
+      "patch_path": "train/needs_annotation/Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot/d1b2206b-39e5-4444-9ebe-223d0d78880e___RS_GLSp 4407_final_masked__r06_c02.jpg",
+      "class_name": "Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot",
+      "margin": 0.002405,
+      "cluster_size": 133
+    },
+    {
+      "cluster_id": 96,
+      "patch_path": "train/needs_annotation/Apple___Apple_scab/d94dd9a8-f2ad-45c4-bf45-3a361f5e2efa___FREC_Scab 3442_final_masked__r04_c02.jpg",
+      "class_name": "Apple___Apple_scab",
+      "margin": 0.00242,
+      "cluster_size": 151
+    },
+    {
+      "cluster_id": 82,
+      "patch_path": "train/needs_annotation/Tomato___Target_Spot/fe4f28b2-dbcc-438f-88cf-e94e17a37ac4___Com.G_TgS_FL 0900_final_masked__r05_c01.jpg",
+      "class_name": "Tomato___Target_Spot",
+      "margin": 0.002421,
+      "cluster_size": 270
+    },
+    {
+      "cluster_id": 63,
+      "patch_path": "train/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/a1310b30-d88f-4902-9d9a-71148318a68d___YLCV_GCREC 2059_final_masked__r05_c01.jpg",
+      "class_name": "Tomato___Tomato_Yellow_Leaf_Curl_Virus",
+      "margin": 0.002803,
+      "cluster_size": 247
+    },
+    {
+      "cluster_id": 38,
+      "patch_path": "train/needs_annotation/Tomato___Bacterial_spot/0de30b71-8bd0-4270-a65b-7ae8befdd765___GCREC_Bact.Sp 6360_final_masked__r05_c06.jpg",
+      "class_name": "Tomato___Bacterial_spot",
+      "margin": 0.002913,
+      "cluster_size": 148
+    },
+    {
+      "cluster_id": 40,
+      "patch_path": "train/needs_annotation/Grape___Esca_(Black_Measles)/79409bc7-04ad-4171-918c-59352a2b01ba___FAM_B.Msls 1741_final_masked__r04_c02.jpg",
+      "class_name": "Grape___Esca_(Black_Measles)",
+      "margin": 0.002998,
+      "cluster_size": 189
+    },
+    {
+      "cluster_id": 70,
+      "patch_path": "train/needs_annotation/Corn_(maize)___Common_rust_/f34d118b-d67c-4081-a0d6-f5338262bfdb___RS_Rust 1640_final_masked__r05_c02.jpg",
+      "class_name": "Corn_(maize)___Common_rust_",
+      "margin": 0.003429,
+      "cluster_size": 127
+    },
+    {
+      "cluster_id": 4,
+      "patch_path": "train/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/05fcb411-6673-4c9a-a028-6cf70a8033a6___YLCV_NREC 0197_final_masked__r01_c03.jpg",
+      "class_name": "Tomato___Tomato_Yellow_Leaf_Curl_Virus",
+      "margin": 0.003557,
+      "cluster_size": 135
+    },
+    {
+      "cluster_id": 87,
+      "patch_path": "train/needs_annotation/Grape___Leaf_blight_(Isariopsis_Leaf_Spot)/e69f4fe7-0238-4897-890c-73ec5f9910ac___FAM_L.Blight 1551_final_masked__r03_c06.jpg",
+      "class_name": "Grape___Leaf_blight_(Isariopsis_Leaf_Spot)",
+      "margin": 0.004161,
+      "cluster_size": 119
+    },
+    {
+      "cluster_id": 72,
+      "patch_path": "train/needs_annotation/Tomato___Leaf_Mold/6e5d3e12-17ad-4c87-bb29-26b13a797560___Crnl_L.Mold 9075_final_masked__r05_c06.jpg",
+      "class_name": "Tomato___Leaf_Mold",
+      "margin": 0.004187,
+      "cluster_size": 70
+    },
+    {
+      "cluster_id": 98,
+      "patch_path": "train/needs_annotation/Tomato___Spider_mites Two-spotted_spider_mite/b510ecb5-48ec-4a3d-ac9d-7b19400542fd___Com.G_SpM_FL 8758_final_masked__r06_c05.jpg",
+      "class_name": "Tomato___Spider_mites Two-spotted_spider_mite",
+      "margin": 0.004455,
+      "cluster_size": 252
+    },
+    {
+      "cluster_id": 7,
+      "patch_path": "train/needs_annotation/Squash___Powdery_mildew/57f40726-2ad0-4dc4-943e-7748144f67cc___MD_Powd.M 0078_final_masked__r03_c05.jpg",
+      "class_name": "Squash___Powdery_mildew",
+      "margin": 0.004625,
+      "cluster_size": 87
+    },
+    {
+      "cluster_id": 91,
+      "patch_path": "train/needs_annotation/Grape___Leaf_blight_(Isariopsis_Leaf_Spot)/4c58cb6e-2da7-4d21-a61e-ec54110f72ad___FAM_L.Blight 1689_final_masked__r02_c03.jpg",
+      "class_name": "Grape___Leaf_blight_(Isariopsis_Leaf_Spot)",
+      "margin": 0.004666,
+      "cluster_size": 63
+    },
+    {
+      "cluster_id": 24,
+      "patch_path": "train/needs_annotation/Grape___Black_rot/81d27128-e7b0-423c-8267-c23cb3b0ab25___FAM_B.Rot 3472_final_masked__r06_c02.jpg",
+      "class_name": "Grape___Black_rot",
+      "margin": 0.004766,
+      "cluster_size": 152
+    },
+    {
+      "cluster_id": 31,
+      "patch_path": "test/needs_annotation/Tomato___Leaf_Mold/8f901183-1af4-402b-87b7-d3838d598ce9___Crnl_L.Mold 9006_final_masked__r06_c03.jpg",
+      "class_name": "Tomato___Leaf_Mold",
+      "margin": 0.004908,
+      "cluster_size": 201
+    },
+    {
+      "cluster_id": 15,
+      "patch_path": "train/needs_annotation/Corn_(maize)___Northern_Leaf_Blight/e468a247-3cc3-414b-8d9b-efde65b2aad6___RS_NLB 3937_final_masked__r04_c01.jpg",
+      "class_name": "Corn_(maize)___Northern_Leaf_Blight",
+      "margin": 0.005452,
+      "cluster_size": 85
+    },
+    {
+      "cluster_id": 92,
+      "patch_path": "test/needs_annotation/Tomato___Bacterial_spot/8d79a02d-108c-4edc-ba25-9eb38a107093___UF.GRC_BS_Lab Leaf 0560_final_masked__r01_c04.jpg",
+      "class_name": "Tomato___Bacterial_spot",
+      "margin": 0.006222,
+      "cluster_size": 131
+    },
+    {
+      "cluster_id": 74,
+      "patch_path": "test/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/e5acbbc3-c89d-4851-a4c7-f0c21401d500___UF.GRC_YLCV_Lab 02688_final_masked__r04_c03.jpg",
+      "class_name": "Tomato___Tomato_Yellow_Leaf_Curl_Virus",
+      "margin": 0.006351,
+      "cluster_size": 141
+    },
+    {
+      "cluster_id": 80,
+      "patch_path": "train/needs_annotation/Squash___Powdery_mildew/d269eaa0-0281-44b0-aff7-3ce8c298548c___UMD_Powd.M 0452_final_masked__r06_c01.jpg",
+      "class_name": "Squash___Powdery_mildew",
+      "margin": 0.006654,
+      "cluster_size": 68
+    },
+    {
+      "cluster_id": 59,
+      "patch_path": "train/needs_annotation/Grape___Esca_(Black_Measles)/4ccb1d95-9211-4042-9237-6da530658378___FAM_B.Msls 0952_final_masked__r04_c03.jpg",
+      "class_name": "Grape___Esca_(Black_Measles)",
+      "margin": 0.006941,
+      "cluster_size": 116
+    }
+  ]
+}
