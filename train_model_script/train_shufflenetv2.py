@@ -24,10 +24,20 @@ How to run:
   uv run train_model_script/train_shufflenetv2.py \\
       --bench_runs 100 --bench_batch 32
 
+  Resume from last periodic checkpoint (auto-detected on startup):
+  uv run train_model_script/train_shufflenetv2.py
+  Force fresh start (ignore existing checkpoints):
+  uv run train_model_script/train_shufflenetv2.py --no_resume
+
+  Periodic save controls:
+  uv run train_model_script/train_shufflenetv2.py --save_every 5 --max_checkpoints 3
+
 Output structure:
   outputs/shufflenetv2_x1_0/
   |-- checkpoints/
-  |   `-- best_model.pt           # model with best val_loss (for final eval)
+  |   |-- best_model.pt           # model with best val_loss (for final eval)
+  |   |-- last_NNNN.pt            # full state, every --save_every epochs
+  |   `-- ...                     # (FIFO: max --max_checkpoints kept)
   |-- logs/
   |   |-- training_log.csv        # per-epoch loss/acc/lr
   |   `-- learning_curve.png
@@ -67,9 +77,12 @@ from _finetune import (
 )
 from _train_common import (
     EarlyStopping,
+    cleanup_old_checkpoints,
     evaluate_test,
     export_onnx,
+    find_latest_checkpoint,
     load_checkpoint,
+    load_state,
     make_output_dirs,
     plot_confusion_matrix,
     plot_learning_curve,
@@ -77,6 +90,7 @@ from _train_common import (
     print_summary,
     quantize_onnx,
     save_checkpoint,
+    save_state,
     train_one_epoch,
     validate,
     write_metrics_json,
@@ -97,7 +111,8 @@ def parse_args() -> argparse.Namespace:
         epilog=(
             "Examples:\n"
             "  uv run train_model_script/train_shufflenetv2.py\n"
-            "  uv run train_model_script/train_shufflenetv2.py --epochs 10 --batch_size 16"
+            "  uv run train_model_script/train_shufflenetv2.py --epochs 10 --batch_size 16\n"
+            "  uv run train_model_script/train_shufflenetv2.py --no_resume"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -111,7 +126,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--phase1_lr", type=float, default=1e-3)
     p.add_argument("--up_sample_size", type=int, default=128)
     p.add_argument("--num_workers", type=int, default=4)
-    p.add_argument("--patience", type=int, default=10)
+    p.add_argument("--patience", type=int, default=5)
+    p.add_argument("--save_every", type=int, default=5)
+    p.add_argument("--max_checkpoints", type=int, default=3)
+    p.add_argument("--no_resume", action="store_true")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--bench_runs", type=int, default=50)
     p.add_argument("--bench_batch", type=int, default=64)
@@ -178,11 +196,31 @@ def main() -> None:
     log_rows: list[dict] = []
     t_start = time.time()
 
+    latest_ckpt = None if args.no_resume else find_latest_checkpoint(paths["checkpoints"])
+    ckpt_meta = None
+    if latest_ckpt:
+        ckpt_meta = torch.load(latest_ckpt, map_location="cpu", weights_only=False)
+        model.load_state_dict(ckpt_meta["model_state_dict"])
+        best_val_loss = ckpt_meta.get("best_val_loss", float("inf"))
+        print(
+            f"Found existing checkpoint: {latest_ckpt.name} "
+            f"(phase {ckpt_meta.get('phase', 1)}, epoch {ckpt_meta.get('epoch', 0)}, "
+            f"val_loss={best_val_loss:.4f})"
+        )
+
     print("\n=== Phase 1: head only (frozen backbone) ===")
     freeze_backbone(model, ["conv1", "stage2", "stage3", "stage4"])
     optimizer = make_optimizer_for_phase(model, args.phase1_lr)
     early_stop = EarlyStopping(patience=args.patience)
-    for epoch in range(min(args.phase1_epochs, args.epochs)):
+
+    phase1_start = args.phase1_epochs
+    if ckpt_meta and ckpt_meta.get("phase", 1) == 1 and ckpt_meta.get("epoch", 0) < args.phase1_epochs:
+        load_state(model, optimizer, scaler, early_stop, latest_ckpt, device, scheduler=None)
+        phase1_start = ckpt_meta.get("epoch", 0)
+        print(f"Resuming phase 1 at epoch {phase1_start}")
+
+    phase1_early_stopped = False
+    for epoch in range(phase1_start, min(args.phase1_epochs, args.epochs)):
         lr = optimizer.param_groups[0]["lr"]
         tl, ta = train_one_epoch(model, train_loader, criterion, optimizer, scaler, device, use_amp)
         vl, va = validate(model, val_loader, criterion, device, use_amp)
@@ -193,29 +231,51 @@ def main() -> None:
             save_checkpoint(model, best_ckpt)
             print(f"  saved best (val_loss={vl:.4f})")
         print(f"phase1 ep {epoch:3d} | tl {tl:.4f} ta {ta:.4f} | vl {vl:.4f} va {va:.4f} | lr {lr:.2e}")
-
-    print("\n=== Phase 2: full fine-tune (ReduceLROnPlateau) ===")
-    unfreeze_all(model)
-    optimizer = make_optimizer_for_phase(model, args.lr)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="min", factor=0.5, patience=5
-    )
-    early_stop.reset()
-    for epoch in range(args.phase1_epochs, args.epochs):
-        lr = optimizer.param_groups[0]["lr"]
-        tl, ta = train_one_epoch(model, train_loader, criterion, optimizer, scaler, device, use_amp)
-        vl, va = validate(model, val_loader, criterion, device, use_amp)
-        scheduler.step(vl)
-        log_rows.append({"epoch": epoch, "train_loss": round(tl, 6), "train_acc": round(ta, 6),
-                         "val_loss": round(vl, 6), "val_acc": round(va, 6), "lr": lr})
-        if vl < best_val_loss:
-            best_val_loss, best_val_acc = vl, va
-            save_checkpoint(model, best_ckpt)
-            print(f"  saved best (val_loss={vl:.4f})")
-        print(f"phase2 ep {epoch:3d} | tl {tl:.4f} ta {ta:.4f} | vl {vl:.4f} va {va:.4f} | lr {lr:.2e}")
+        if (epoch + 1) % args.save_every == 0:
+            state_path = paths["checkpoints"] / f"last_{(epoch+1):04d}.pt"
+            save_state(model, optimizer, scaler, epoch + 1, best_val_loss, early_stop, 1, state_path, scheduler=None)
+            cleanup_old_checkpoints(paths["checkpoints"], args.max_checkpoints)
+            print(f"  saved periodic checkpoint: {state_path.name}")
         if early_stop(vl):
-            print(f"Early stop at epoch {epoch}")
+            print(f"Early stop at phase 1 epoch {epoch}")
+            phase1_early_stopped = True
             break
+
+    if not phase1_early_stopped and args.phase1_epochs < args.epochs:
+        print("\n=== Phase 2: full fine-tune (ReduceLROnPlateau) ===")
+        unfreeze_all(model)
+        optimizer = make_optimizer_for_phase(model, args.lr)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode="min", factor=0.5, patience=5
+        )
+        early_stop = EarlyStopping(patience=args.patience)
+
+        phase2_start = args.phase1_epochs
+        if ckpt_meta and ckpt_meta.get("phase", 1) == 2 and ckpt_meta.get("epoch", 0) >= args.phase1_epochs:
+            load_state(model, optimizer, scaler, early_stop, latest_ckpt, device, scheduler=scheduler)
+            phase2_start = ckpt_meta.get("epoch", 0)
+            print(f"Resuming phase 2 at epoch {phase2_start}")
+
+        for epoch in range(phase2_start, args.epochs):
+            lr = optimizer.param_groups[0]["lr"]
+            tl, ta = train_one_epoch(model, train_loader, criterion, optimizer, scaler, device, use_amp)
+            vl, va = validate(model, val_loader, criterion, device, use_amp)
+            scheduler.step(vl)
+            log_rows.append({"epoch": epoch, "train_loss": round(tl, 6), "train_acc": round(ta, 6),
+                             "val_loss": round(vl, 6), "val_acc": round(va, 6), "lr": lr})
+            if vl < best_val_loss:
+                best_val_loss, best_val_acc = vl, va
+                save_checkpoint(model, best_ckpt)
+                print(f"  saved best (val_loss={vl:.4f})")
+            print(f"phase2 ep {epoch:3d} | tl {tl:.4f} ta {ta:.4f} | vl {vl:.4f} va {va:.4f} | lr {lr:.2e}")
+            if (epoch + 1) % args.save_every == 0:
+                state_path = paths["checkpoints"] / f"last_{(epoch+1):04d}.pt"
+                save_state(model, optimizer, scaler, epoch + 1, best_val_loss, early_stop, 2, state_path, scheduler=scheduler)
+                cleanup_old_checkpoints(paths["checkpoints"], args.max_checkpoints)
+                print(f"  saved periodic checkpoint: {state_path.name}")
+            if early_stop(vl):
+                print(f"Early stop at phase 2 epoch {epoch}")
+                break
 
     train_time = time.time() - t_start
     trainable, _ = count_parameters(model)

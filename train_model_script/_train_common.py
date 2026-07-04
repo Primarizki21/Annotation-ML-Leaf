@@ -194,6 +194,76 @@ def load_checkpoint(
     model.to(device)
 
 
+def save_state(
+    model: nn.Module,
+    optimizer: torch.optim.Optimizer,
+    scaler: torch.amp.GradScaler,
+    epoch: int,
+    best_val_loss: float,
+    early_stop: "EarlyStopping",
+    phase: int,
+    path: Path,
+    scheduler: torch.optim.lr_scheduler.LRScheduler | None = None,
+) -> None:
+    """Save full training state for resume (model + optimizer + scaler +
+    scheduler + epoch + best_val_loss + early-stop state + phase)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    state = {
+        "model_state_dict": model.state_dict(),
+        "optimizer_state_dict": optimizer.state_dict(),
+        "scaler_state_dict": scaler.state_dict() if scaler.is_enabled() else None,
+        "epoch": epoch,
+        "best_val_loss": best_val_loss,
+        "early_stop_counter": early_stop.counter,
+        "early_stop_best": early_stop.best,
+        "phase": phase,
+    }
+    if scheduler is not None:
+        state["scheduler_state_dict"] = scheduler.state_dict()
+    torch.save(state, path)
+
+
+def load_state(
+    model: nn.Module,
+    optimizer: torch.optim.Optimizer,
+    scaler: torch.amp.GradScaler,
+    early_stop: "EarlyStopping",
+    path: Path,
+    device: torch.device,
+    scheduler: torch.optim.lr_scheduler.LRScheduler | None = None,
+) -> dict:
+    """Load full training state from a periodic checkpoint. Restores
+    model + optimizer + scaler (if AMP) + scheduler (if provided) +
+    early-stop counter/best. Returns the full checkpoint dict so the
+    caller can read `epoch` and `phase`."""
+    ckpt = torch.load(path, map_location=device, weights_only=False)
+    model.load_state_dict(ckpt["model_state_dict"])
+    optimizer.load_state_dict(ckpt["optimizer_state_dict"])
+    if scaler.is_enabled() and ckpt.get("scaler_state_dict"):
+        scaler.load_state_dict(ckpt["scaler_state_dict"])
+    if scheduler is not None and ckpt.get("scheduler_state_dict"):
+        scheduler.load_state_dict(ckpt["scheduler_state_dict"])
+    early_stop.counter = ckpt.get("early_stop_counter", 0)
+    early_stop.best = ckpt.get("early_stop_best", float("inf"))
+    return ckpt
+
+
+def find_latest_checkpoint(checkpoint_dir: Path) -> Path | None:
+    """Return the highest-epoch last_NNNN.pt in checkpoint_dir, or None."""
+    if not checkpoint_dir.exists():
+        return None
+    files = sorted(checkpoint_dir.glob("last_*.pt"))
+    return files[-1] if files else None
+
+
+def cleanup_old_checkpoints(checkpoint_dir: Path, keep: int) -> None:
+    """Delete oldest last_*.pt files, keep only `keep` most recent (FIFO)."""
+    files = sorted(checkpoint_dir.glob("last_*.pt"))
+    while len(files) > keep:
+        files[0].unlink()
+        files.pop(0)
+
+
 def export_onnx(
     model: nn.Module,
     onnx_path: Path,

@@ -18,10 +18,20 @@ How to run:
       --output_dir ./outputs/small_inception \\
       --epochs 300 --batch_size 32 --lr 1e-3
 
+  Resume from last periodic checkpoint (auto-detected on startup):
+  uv run train_model_script/train_small_inception.py
+  Force fresh start (ignore existing checkpoints):
+  uv run train_model_script/train_small_inception.py --no_resume
+
+  Periodic save controls:
+  uv run train_model_script/train_small_inception.py --save_every 5 --max_checkpoints 3
+
 Output structure:
   outputs/small_inception/
   |-- checkpoints/
-  |   `-- best_model.pt           # model with best val_loss (for final eval)
+  |   |-- best_model.pt           # model with best val_loss (for final eval)
+  |   |-- last_NNNN.pt            # full state, every --save_every epochs
+  |   `-- ...                     # (FIFO: max --max_checkpoints kept)
   |-- logs/
   |   |-- training_log.csv        # per-epoch loss/acc/lr
   |   `-- learning_curve.png
@@ -47,15 +57,19 @@ import torch.nn as nn
 
 from _train_common import (
     EarlyStopping,
+    cleanup_old_checkpoints,
     evaluate_test,
     export_onnx,
+    find_latest_checkpoint,
     load_checkpoint,
+    load_state,
     make_output_dirs,
     plot_confusion_matrix,
     plot_learning_curve,
     print_config,
     print_summary,
     save_checkpoint,
+    save_state,
     train_one_epoch,
     validate,
     write_metrics_json,
@@ -151,7 +165,8 @@ def parse_args() -> argparse.Namespace:
         epilog=(
             "Examples:\n"
             "  uv run train_model_script/train_small_inception.py\n"
-            "  uv run train_model_script/train_small_inception.py --epochs 10 --batch_size 16"
+            "  uv run train_model_script/train_small_inception.py --epochs 10 --batch_size 16\n"
+            "  uv run train_model_script/train_small_inception.py --no_resume"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -162,7 +177,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--batch_size", type=int, default=32)
     p.add_argument("--lr", type=float, default=1e-3)
     p.add_argument("--num_workers", type=int, default=4)
-    p.add_argument("--patience", type=int, default=25)
+    p.add_argument("--patience", type=int, default=5)
+    p.add_argument("--save_every", type=int, default=5)
+    p.add_argument("--max_checkpoints", type=int, default=3)
+    p.add_argument("--no_resume", action="store_true")
     p.add_argument("--seed", type=int, default=42)
     return p.parse_args()
 
@@ -194,21 +212,36 @@ def main() -> None:
     early_stop = EarlyStopping(patience=args.patience)
 
     best_val_acc = 0.0
+    best_val_loss = float("inf")
     log_rows: list[dict] = []
     best_ckpt = paths["checkpoints"] / "best_model.pt"
     t_start = time.time()
 
-    for epoch in range(args.epochs):
+    start_epoch = 0
+    latest_ckpt = None if args.no_resume else find_latest_checkpoint(paths["checkpoints"])
+    if latest_ckpt:
+        ckpt = load_state(model, optimizer, scaler, early_stop, latest_ckpt, device, scheduler=None)
+        start_epoch = ckpt.get("epoch", 0)
+        best_val_loss = ckpt.get("best_val_loss", float("inf"))
+        print(f"Resumed from {latest_ckpt.name} at epoch {start_epoch} (val_loss={best_val_loss:.4f})")
+
+    for epoch in range(start_epoch, args.epochs):
         lr = optimizer.param_groups[0]["lr"]
         tl, ta = train_one_epoch(model, train_loader, criterion, optimizer, scaler, device, use_amp)
         vl, va = validate(model, val_loader, criterion, device, use_amp)
         log_rows.append({"epoch": epoch, "train_loss": round(tl, 6), "train_acc": round(ta, 6),
                          "val_loss": round(vl, 6), "val_acc": round(va, 6), "lr": lr})
-        if vl < early_stop.best:
+        if vl < best_val_loss:
             best_val_acc = va
+            best_val_loss = vl
             save_checkpoint(model, best_ckpt)
             print(f"  saved best (val_loss={vl:.4f})")
         print(f"epoch {epoch:3d} | tl {tl:.4f} ta {ta:.4f} | vl {vl:.4f} va {va:.4f} | lr {lr:.2e}")
+        if (epoch + 1) % args.save_every == 0:
+            state_path = paths["checkpoints"] / f"last_{(epoch+1):04d}.pt"
+            save_state(model, optimizer, scaler, epoch + 1, best_val_loss, early_stop, 1, state_path, scheduler=None)
+            cleanup_old_checkpoints(paths["checkpoints"], args.max_checkpoints)
+            print(f"  saved periodic checkpoint: {state_path.name}")
         if early_stop(vl):
             print(f"Early stop at epoch {epoch} (patience {args.patience})")
             break
