@@ -5,6 +5,12 @@ Build output_dataset_final/dataset_binary.csv from
 predictions/master_predictions_round4.csv (model pseudo-labels) +
 consensus_round1_master.csv (4/5 + 5/5 human labels).
 Binary classification: 0 = healthy, 1 = unhealthy.
+
+Split: stratified 70/15/15 by leaf_id (extracted from patch_path, the
+8-4-4-4-12 UUID prefix).  All patches of a leaf share the same split
+(no data leakage).  patch_path is preserved as-is (the old train/ or
+test/ directory prefix is the actual disk path; the new 3-way `split`
+column is the partition label, independent of disk location).
 """
 from __future__ import annotations
 
@@ -70,6 +76,31 @@ def main() -> int:
     out = pd.concat([master_df, consensus_df], ignore_index=True)
     assert len(out) == len(master_df) + len(consensus_df), "concat row count mismatch"
 
+    out["leaf_id"] = (
+        out["patch_path"]
+        .str.split("/").str[-1]
+        .str.split("___").str[0]
+    )
+    leaves_df = out[["leaf_id", "class_name"]].drop_duplicates().reset_index(drop=True)
+    assert leaves_df["class_name"].nunique() == 28, "expected 28 classes"
+
+    rng = np.random.default_rng(42)
+    leaf_splits: dict[str, str] = {}
+    for cls, group in leaves_df.groupby("class_name"):
+        ids = group["leaf_id"].to_numpy().copy()
+        rng.shuffle(ids)
+        n = len(ids)
+        n_train = int(round(n * 0.70))
+        n_val   = int(round(n * 0.85)) - n_train
+        for id_ in ids[:n_train]:              leaf_splits[id_] = "train"
+        for id_ in ids[n_train:n_train+n_val]: leaf_splits[id_] = "val"
+        for id_ in ids[n_train+n_val:]:        leaf_splits[id_] = "test"
+
+    out["split"] = out["leaf_id"].map(leaf_splits)
+    assert out["split"].notna().all(), "some patches got no split (orphan leaf_id)"
+    assert set(out["split"].unique()) == {"train", "val", "test"}, "missing a split"
+    out = out.drop(columns=["leaf_id"])
+
     print("Verifying consensus patches on disk (100%)...")
     missing_c = [p for p in consensus_df["patch_path"] if not (PATCHES_DIR / p).exists()]
     if missing_c:
@@ -93,6 +124,11 @@ def main() -> int:
     def flat(d: dict) -> dict:
         return {f"{k[0]}_{k[1]}": int(v) for k, v in d.items()}
 
+    pct = (out["split"].value_counts(normalize=True) * 100).round(2).to_dict()
+    n_leaves_per_split = {
+        s: int(sum(1 for v in leaf_splits.values() if v == s))
+        for s in ("train", "val", "test")
+    }
     stats = {
         "total_rows": int(len(out)),
         "split":  out["split"].value_counts().to_dict(),
@@ -100,12 +136,19 @@ def main() -> int:
         "source": out["source"].value_counts().to_dict(),
         "label_per_split":  flat(out.groupby(["split", "label"]).size().to_dict()),
         "source_per_split": flat(out.groupby(["split", "source"]).size().to_dict()),
+        "class_per_split":  out.groupby("split")["class_name"].nunique().to_dict(),
+        "n_leaves_per_split": n_leaves_per_split,
+        "split_pct": pct,
         "class_count": len(class_names),
         "sanity": {
             "label_values": sorted(out["label"].unique().tolist()),
             "master_count": int(len(master_df)),
             "consensus_count": int(len(consensus_df)),
             "consensus_missing_on_disk": len(missing_c),
+            "all_splits_populated": set(out["split"].unique()) == {"train", "val", "test"},
+            "train_pct_near_70": abs(pct.get("train", 0) - 70.0) < 0.5,
+            "val_pct_near_15":   abs(pct.get("val",   0) - 15.0) < 0.5,
+            "test_pct_near_15":  abs(pct.get("test",  0) - 15.0) < 0.5,
         },
     }
     out_stats.write_text(json.dumps(stats, indent=2))
@@ -117,7 +160,7 @@ def main() -> int:
     n = len(out)
     print("\n=== Summary ===")
     print(f"Total rows:    {n:,}")
-    print(f"Train / Test:  {(out.split=='train').sum():,} / {(out.split=='test').sum():,}")
+    print(f"Train / Val / Test:  {(out.split=='train').sum():,} / {(out.split=='val').sum():,} / {(out.split=='test').sum():,}")
     print(f"Healthy (0):   {(out.label==0).sum():,}  ({(out.label==0).mean()*100:.1f}%)")
     print(f"Unhealthy (1): {(out.label==1).sum():,}  ({(out.label==1).mean()*100:.1f}%)")
     print(f"Sources:       {out.source.value_counts().to_dict()}")
