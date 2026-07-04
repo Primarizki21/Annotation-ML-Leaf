@@ -62,6 +62,9 @@ from torchvision.models import MobileNet_V3_Small_Weights, mobilenet_v3_small
 from _finetune import (
     freeze_backbone,
     make_optimizer_for_phase,
+    print_phase_footer,
+    print_phase_skipped,
+    print_phase_state,
     trainable_count,
     unfreeze_all,
 )
@@ -112,7 +115,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--output_dir", type=Path, default=Path("./outputs"))
     p.add_argument("--epochs", type=int, default=50)
     p.add_argument("--phase1_epochs", type=int, default=5)
-    p.add_argument("--batch_size", type=int, default=32)
+    p.add_argument("--batch_size", type=int, default=512)
     p.add_argument("--lr", type=float, default=1e-4)
     p.add_argument("--phase1_lr", type=float, default=1e-3)
     p.add_argument("--up_sample_size", type=int, default=128)
@@ -170,19 +173,29 @@ def main() -> None:
             f"val_loss={best_val_loss:.4f})"
         )
 
-    print("\n=== Phase 1: head only (frozen backbone) ===")
+    phase1_start = args.phase1_epochs
+    if ckpt_meta and ckpt_meta.get("phase", 1) == 1 and ckpt_meta.get("epoch", 0) < args.phase1_epochs:
+        phase1_start = ckpt_meta.get("epoch", 0)
+    phase1_end = min(args.phase1_epochs, args.epochs)
+    n_phase1 = max(phase1_end - phase1_start, 0)
+    print(
+        f"\n=== Phase 1: head only (frozen backbone), "
+        f"epochs {phase1_start}-{phase1_end - 1} ({n_phase1} total) ==="
+    )
     freeze_backbone(model, ["features"])
     optimizer = make_optimizer_for_phase(model, args.phase1_lr)
     early_stop = EarlyStopping(patience=args.patience)
-
-    phase1_start = args.phase1_epochs
-    if ckpt_meta and ckpt_meta.get("phase", 1) == 1 and ckpt_meta.get("epoch", 0) < args.phase1_epochs:
-        load_state(model, optimizer, scaler, early_stop, latest_ckpt, device, scheduler=None)
-        phase1_start = ckpt_meta.get("epoch", 0)
-        print(f"Resuming phase 1 at epoch {phase1_start}")
+    print_phase_state(model, optimizer, early_stop, args.phase1_lr)
 
     phase1_early_stopped = False
-    for epoch in range(phase1_start, min(args.phase1_epochs, args.epochs)):
+    if n_phase1 == 0:
+        print_phase_skipped("Phase 1", phase1_start, phase1_end)
+    elif ckpt_meta and ckpt_meta.get("phase", 1) == 1:
+        load_state(model, optimizer, scaler, early_stop, latest_ckpt, device, scheduler=None)
+        print(f"Resuming phase 1 at epoch {phase1_start}")
+
+    phase1_epochs_ran = 0
+    for epoch in range(phase1_start, phase1_end):
         lr = optimizer.param_groups[0]["lr"]
         tl, ta = train_one_epoch(model, train_loader, criterion, optimizer, scaler, device, use_amp)
         vl, va = validate(model, val_loader, criterion, device, use_amp)
@@ -202,22 +215,33 @@ def main() -> None:
             print(f"Early stop at phase 1 epoch {epoch}")
             phase1_early_stopped = True
             break
+        phase1_epochs_ran += 1
+    print_phase_footer("Phase 1", phase1_epochs_ran, best_val_loss, best_val_acc)
 
     if not phase1_early_stopped and args.phase1_epochs < args.epochs:
-        print("\n=== Phase 2: full fine-tune (cosine schedule) ===")
+        phase2_start = args.phase1_epochs
+        if ckpt_meta and ckpt_meta.get("phase", 1) == 2 and ckpt_meta.get("epoch", 0) >= args.phase1_epochs:
+            phase2_start = ckpt_meta.get("epoch", 0)
+        n_phase2 = max(args.epochs - phase2_start, 0)
+        print(
+            f"\n=== Phase 2: full fine-tune (cosine schedule), "
+            f"epochs {phase2_start}-{args.epochs - 1} ({n_phase2} total) ==="
+        )
         unfreeze_all(model)
         optimizer = make_optimizer_for_phase(model, args.lr)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, T_max=max(args.epochs - args.phase1_epochs, 1)
         )
         early_stop = EarlyStopping(patience=args.patience)
+        print_phase_state(model, optimizer, early_stop, args.lr)
 
-        phase2_start = args.phase1_epochs
-        if ckpt_meta and ckpt_meta.get("phase", 1) == 2 and ckpt_meta.get("epoch", 0) >= args.phase1_epochs:
+        if n_phase2 == 0:
+            print_phase_skipped("Phase 2", phase2_start, args.epochs)
+        elif ckpt_meta and ckpt_meta.get("phase", 1) == 2:
             load_state(model, optimizer, scaler, early_stop, latest_ckpt, device, scheduler=scheduler)
-            phase2_start = ckpt_meta.get("epoch", 0)
             print(f"Resuming phase 2 at epoch {phase2_start}")
 
+        phase2_epochs_ran = 0
         for epoch in range(phase2_start, args.epochs):
             lr = optimizer.param_groups[0]["lr"]
             tl, ta = train_one_epoch(model, train_loader, criterion, optimizer, scaler, device, use_amp)
@@ -238,6 +262,8 @@ def main() -> None:
             if early_stop(vl):
                 print(f"Early stop at phase 2 epoch {epoch}")
                 break
+            phase2_epochs_ran += 1
+        print_phase_footer("Phase 2", phase2_epochs_ran, best_val_loss, best_val_acc)
 
     train_time = time.time() - t_start
     trainable, _ = count_parameters(model)
