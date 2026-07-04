@@ -245,7 +245,8 @@ def main():
 
     transform = build_transform()
     ds = InferenceDataset(predict_entries, transform)
-    loader = DataLoader(ds, batch_size=args.batch_size, shuffle=False, num_workers=0)
+    loader = DataLoader(ds, batch_size=args.batch_size, shuffle=False,
+                        num_workers=4, pin_memory=True)
 
     pred_labels, confidences = run_inference(model, loader, device)
 
