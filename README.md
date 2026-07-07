@@ -34,9 +34,9 @@ It's the smallest full-stack ML pipeline I could ship that still does everything
 
 ## Why this project?
 
-The inspiration paper (see [Acknowledgments](#acknowledgments--credits)) trains a classifier on **whole-leaf** PlantVillage images and reports strong cross-crop accuracy. But it works at the leaf level: every input is one full 256×256 image, labeled with the leaf's class.
+The inspiration paper (see [Acknowledgments](#acknowledgments--credits)) introduces a **patch-based deep learning** approach for plant disease detection: instead of classifying a full leaf as a single label, it slices the leaf into patches and classifies each patch. The method shows that fine-grained patch-level features generalize better across crops than whole-leaf classification.
 
-This project pushes one level deeper — **patch-level**. The 256×256 leaves are sliced into 32×32 patches (1,048,879 of them), and each patch is labeled `healthy` or `unhealthy` by 5 human annotators through a consensus + Fleiss-κ review pipeline. The result is a public, reproducible, **patch-level** ground truth that the original dataset doesn't ship with, and a model that can localize disease within a leaf rather than just classify the whole leaf.
+This project follows that **patch-based** framing. The 256×256 leaves are sliced into 32×32 patches (1,048,879 of them), and each patch is labeled `healthy` or `unhealthy` by 5 human annotators through a consensus + Fleiss-κ review pipeline. The added value here is the **public, reproducible patch-level ground truth**: the paper's expert annotations are not released, and PlantVillage only ships full-leaf labels. This codebase fills that gap with crowd annotation from 5 friends, so anyone can rerun the patch-level experiments.
 
 ---
 
@@ -351,7 +351,7 @@ Composed per-round training set: consensus (34,611) + pseudo-labeled (~16,000) +
 ## Acknowledgments & Credits
 
 - **Dataset:** [PlantVillage](https://github.com/spmohanty/plantvillage-dataset) by Sharada P. Mohanty et al. (2016), also mirrored on [Hugging Face](https://huggingface.co/datasets/mohanty/PlantVillage). Source: 256×256 leaf images across 38 classes (this project uses 28: 22 unhealthy + 6 healthy).
-- **Inspiration paper:** *"Innovative deep learning approach for cross-crop plant disease detection: A generalized method for identifying unhealthy leaves"*, [DOI: 10.1016/j.inpa.2024.03.002](https://doi.org/10.1016/j.inpa.2024.03.002). The original method operates on whole-leaf images; this project replicates the spirit at the **patch level** using crowd annotation (5 friends) instead of expert pathologists, since the paper does not release patch-level ground truth.
+- **Inspiration paper:** *"Innovative deep learning approach for cross-crop plant disease detection: A generalized method for identifying unhealthy leaves"*, [DOI: 10.1016/j.inpa.2024.03.002](https://doi.org/10.1016/j.inpa.2024.03.002). The paper's key idea is **patch-based deep learning** — slice each leaf into patches and classify at the patch level rather than the whole leaf. This project replicates that framing, with the difference that the paper's expert-annotated patch dataset is not publicly released; this codebase provides the **public patch-level ground truth** via crowd annotation (5 friends) so the method can be reproduced end-to-end.
 - **Annotators:** the 5 friends (Oki, Muna, Diaz, Sarah, Cinta) who did the consensus and AL rounds.
 
 ---
