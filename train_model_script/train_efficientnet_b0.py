@@ -126,7 +126,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--up_sample_size", type=int, default=160)
     p.add_argument("--num_workers", type=int, default=4)
     p.add_argument("--patience", type=int, default=5)
-    p.add_argument("--save_every", type=int, default=5)
+    p.add_argument("--save_every", type=int, default=1)
     p.add_argument("--max_checkpoints", type=int, default=3)
     p.add_argument("--no_resume", action="store_true")
     p.add_argument("--seed", type=int, default=42)
