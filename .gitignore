@@ -28,10 +28,22 @@ output_data/
 # Active learning artifacts (too large for git, regenerable)
 predictions/master_predictions_round*.csv
 predictions/embeddings_round*.npy
+predictions/pseudo_labeled_set_round*.csv
 predictions/plots*
 
 # All folder containing dataset_
 dataset_*/ 
+
+# Large output dirs (regenerable, dataset-sized)
+output_dataset_final*/
+output_eda/
+outputs/
+
+# Per-round annotation datasets (regenerable, ~9MB each)
+round[0-9]_dataset.csv
+
+# Windows Alternate Data Stream junk
+*:Zone.Identifier
 
 # OpenClaude
 .openclaude/

@@ -1,0 +1,71 @@
+patch_path,class_name,split,label,agreement,n_unanimous
+test/needs_annotation/Apple___Apple_scab/62c3478f-3ab0-48df-962f-9d7782ec364d___FREC_Scab 2925_final_masked__r04_c03.jpg,Apple___Apple_scab,test,unhealthy,4/5,4
+test/needs_annotation/Corn_(maize)___Common_rust_/9931e2db-705d-4f59-9371-efb19ea208a2___RS_Rust 1878_final_masked__r03_c04.jpg,Corn_(maize)___Common_rust_,test,unhealthy,5/5,5
+test/needs_annotation/Grape___Black_rot/4d1cb709-f730-41e0-9beb-f793d4c24d47___FAM_B.Rot 0524_final_masked__r06_c06.jpg,Grape___Black_rot,test,healthy,5/5,5
+test/needs_annotation/Grape___Black_rot/bc1eb559-1156-40a0-828b-7a5f21c60e30___FAM_B.Rot 3408_final_masked__r03_c06.jpg,Grape___Black_rot,test,healthy,4/5,4
+test/needs_annotation/Grape___Esca_(Black_Measles)/4ff51eae-ad78-4149-8cf6-e3f98c6f25a6___FAM_B.Msls 1275_final_masked__r05_c02.jpg,Grape___Esca_(Black_Measles),test,unhealthy,5/5,5
+test/needs_annotation/Grape___Esca_(Black_Measles)/a75e0225-d002-4491-a20b-437970b49e19___FAM_B.Msls 1157_final_masked__r05_c02.jpg,Grape___Esca_(Black_Measles),test,unhealthy,4/5,4
+test/needs_annotation/Grape___Esca_(Black_Measles)/ae79d5f9-7980-43a3-807e-ec967d36b574___FAM_B.Msls 3930_final_masked__r03_c06.jpg,Grape___Esca_(Black_Measles),test,unhealthy,5/5,5
+test/needs_annotation/Grape___Leaf_blight_(Isariopsis_Leaf_Spot)/67404133-edc0-4e07-a4ec-6bcb825e3702___FAM_L.Blight 4675_final_masked__r05_c04.jpg,Grape___Leaf_blight_(Isariopsis_Leaf_Spot),test,unhealthy,4/5,4
+test/needs_annotation/Squash___Powdery_mildew/424f2c40-c102-4c75-bb23-9c203bf22c92___MD_Powd.M 0575_final_masked__r06_c01.jpg,Squash___Powdery_mildew,test,unhealthy,4/5,4
+test/needs_annotation/Tomato___Bacterial_spot/02a0f70a-9e27-420e-93ff-6ed8105f41c1___GCREC_Bact.Sp 3570_final_masked__r04_c05.jpg,Tomato___Bacterial_spot,test,unhealthy,4/5,4
+test/needs_annotation/Tomato___Late_blight/349b160d-6a6a-4b94-bdd3-81b670d13996___GHLB2 Leaf 72_final_masked__r02_c04.jpg,Tomato___Late_blight,test,unhealthy,5/5,5
+test/needs_annotation/Tomato___Late_blight/6e93da35-363f-42f4-af65-e6eeb1217058___GHLB2 Leaf 8780_final_masked__r03_c04.jpg,Tomato___Late_blight,test,unhealthy,5/5,5
+test/needs_annotation/Tomato___Leaf_Mold/408bcf77-7dd7-4a8a-9f3a-b97684520217___Crnl_L.Mold 6611_final_masked__r05_c01.jpg,Tomato___Leaf_Mold,test,unhealthy,5/5,5
+test/needs_annotation/Tomato___Septoria_leaf_spot/07a4190c-b0c0-4e03-9ad5-474938c837d2___Matt.S_CG 1242_final_masked__r05_c01.jpg,Tomato___Septoria_leaf_spot,test,unhealthy,4/5,4
+train/needs_annotation/Apple___Apple_scab/4b51cc5d-4122-451b-8598-81ea29dc7cd4___FREC_Scab 3290_final_masked__r07_c06.jpg,Apple___Apple_scab,train,unhealthy,4/5,4
+train/needs_annotation/Apple___Apple_scab/6a006aa9-a9f2-4269-9fd9-7a879f01faf1___FREC_Scab 3117_final_masked__r05_c06.jpg,Apple___Apple_scab,train,unhealthy,5/5,5
+train/needs_annotation/Apple___Apple_scab/ad6539ea-7bc6-4f4a-810f-63ee95db8bfe___FREC_Scab 3184_final_masked__r06_c03.jpg,Apple___Apple_scab,train,healthy,4/5,4
+train/needs_annotation/Apple___Black_rot/e6c8b854-6b46-4137-8e08-81e63ff418ea___JR_FrgE.S 2971_final_masked__r05_c03.jpg,Apple___Black_rot,train,healthy,4/5,4
+train/needs_annotation/Apple___Cedar_apple_rust/112cfc79-00ab-4920-a235-977c134bdb5d___FREC_C.Rust 4365_final_masked__r02_c05.jpg,Apple___Cedar_apple_rust,train,unhealthy,5/5,5
+train/needs_annotation/Corn_(maize)___Common_rust_/e444fe57-5c82-45f3-b63d-59d7464aa0e5___RS_Rust 2672_final_masked__r01_c03.jpg,Corn_(maize)___Common_rust_,train,unhealthy,5/5,5
+train/needs_annotation/Corn_(maize)___Northern_Leaf_Blight/0b3a35d8-25af-44ae-beed-398f591d5c1b___RS_NLB 0833_final_masked__r06_c06.jpg,Corn_(maize)___Northern_Leaf_Blight,train,unhealthy,4/5,4
+train/needs_annotation/Corn_(maize)___Northern_Leaf_Blight/0fc1bc0b-2d7b-4c17-b32b-c7cc8301795e___RS_NLB 0829_final_masked__r04_c02.jpg,Corn_(maize)___Northern_Leaf_Blight,train,unhealthy,5/5,5
+train/needs_annotation/Corn_(maize)___Northern_Leaf_Blight/7cb45f15-0315-4cb4-88fa-c0bcef1a5a73___RS_NLB 0777_final_masked__r06_c03.jpg,Corn_(maize)___Northern_Leaf_Blight,train,unhealthy,5/5,5
+train/needs_annotation/Corn_(maize)___Northern_Leaf_Blight/87705bdf-957a-4abb-b8b6-159d64de4e02___RS_NLB 3985_final_masked__r00_c03.jpg,Corn_(maize)___Northern_Leaf_Blight,train,unhealthy,5/5,5
+train/needs_annotation/Corn_(maize)___Northern_Leaf_Blight/8b09fccc-2ee5-41dd-ac51-99e82e2f81f6___RS_NLB 3518_final_masked__r02_c00.jpg,Corn_(maize)___Northern_Leaf_Blight,train,unhealthy,5/5,5
+train/needs_annotation/Corn_(maize)___Northern_Leaf_Blight/ca3919bb-4e04-4fb2-a2d9-22e798d6ca60___RS_NLB 3970 copy_final_masked__r07_c04.jpg,Corn_(maize)___Northern_Leaf_Blight,train,unhealthy,5/5,5
+train/needs_annotation/Grape___Black_rot/0cf5d61f-fb1a-4533-b0aa-f174d2acdc82___FAM_B.Rot 0721_final_masked__r06_c01.jpg,Grape___Black_rot,train,healthy,5/5,5
+train/needs_annotation/Grape___Black_rot/de097082-5b48-40bf-8bfc-a555f761490f___FAM_B.Rot 5017_final_masked__r05_c07.jpg,Grape___Black_rot,train,unhealthy,5/5,5
+train/needs_annotation/Grape___Esca_(Black_Measles)/419979ee-6231-4a02-94d1-3bcbdd2b63c3___FAM_B.Msls 4485_final_masked__r05_c04.jpg,Grape___Esca_(Black_Measles),train,healthy,4/5,4
+train/needs_annotation/Grape___Esca_(Black_Measles)/96287166-5b9e-4f13-aa33-02b0b1567379___FAM_B.Msls 3979_final_masked__r04_c04.jpg,Grape___Esca_(Black_Measles),train,unhealthy,4/5,4
+train/needs_annotation/Grape___Esca_(Black_Measles)/eb8e982f-0162-48a9-b989-3e523ad702a3___FAM_B.Msls 1252_final_masked__r04_c03.jpg,Grape___Esca_(Black_Measles),train,unhealthy,4/5,4
+train/needs_annotation/Grape___Leaf_blight_(Isariopsis_Leaf_Spot)/21f6f445-c1f9-487e-ab11-be0801a7422a___FAM_L.Blight 4570_final_masked__r03_c01.jpg,Grape___Leaf_blight_(Isariopsis_Leaf_Spot),train,unhealthy,5/5,5
+train/needs_annotation/Grape___Leaf_blight_(Isariopsis_Leaf_Spot)/2b735e09-c466-4d1d-903c-f4ea036225fa___FAM_L.Blight 4703_final_masked__r04_c02.jpg,Grape___Leaf_blight_(Isariopsis_Leaf_Spot),train,unhealthy,5/5,5
+train/needs_annotation/Grape___Leaf_blight_(Isariopsis_Leaf_Spot)/8ed09c19-b193-4134-94df-b1491c5f2daf___FAM_L.Blight 4721_final_masked__r06_c05.jpg,Grape___Leaf_blight_(Isariopsis_Leaf_Spot),train,unhealthy,5/5,5
+train/needs_annotation/Grape___Leaf_blight_(Isariopsis_Leaf_Spot)/d5a4f65f-7d27-43cf-a4bd-d89e0b462f6c___FAM_L.Blight 1466_final_masked__r02_c06.jpg,Grape___Leaf_blight_(Isariopsis_Leaf_Spot),train,unhealthy,4/5,4
+train/needs_annotation/Potato___Early_blight/63b61694-16e9-4ef4-ad6f-5e27d2c9eed9___RS_Early.B 6871_final_masked__r03_c00.jpg,Potato___Early_blight,train,unhealthy,4/5,4
+train/needs_annotation/Potato___Early_blight/d8efc91f-6e85-4508-8d49-9c4a11c4c71a___RS_Early.B 7484_final_masked__r04_c04.jpg,Potato___Early_blight,train,unhealthy,4/5,4
+train/needs_annotation/Potato___Late_blight/541591d3-3560-4540-ac2c-9749936e80ae___RS_LB 2553_final_masked__r03_c02.jpg,Potato___Late_blight,train,unhealthy,5/5,5
+train/needs_annotation/Potato___Late_blight/ab9b15fb-d4cc-4d67-a5bb-8b88f066c1db___RS_LB 4825_final_masked__r04_c04.jpg,Potato___Late_blight,train,healthy,4/5,4
+train/needs_annotation/Squash___Powdery_mildew/0ebcf6bf-283a-45a9-bd60-ec5bc2b5f864___UMD_Powd.M 9986_final_masked__r01_c02.jpg,Squash___Powdery_mildew,train,unhealthy,4/5,4
+train/needs_annotation/Squash___Powdery_mildew/4a9dc62b-1f64-47a8-8206-fa92476297f3___UMD_Powd.M 0697_final_masked__r06_c04.jpg,Squash___Powdery_mildew,train,unhealthy,4/5,4
+train/needs_annotation/Squash___Powdery_mildew/62a55a45-66e5-4039-8520-bdd40572d761___UMD_Powd.M 0174_final_masked__r04_c07.jpg,Squash___Powdery_mildew,train,unhealthy,5/5,5
+train/needs_annotation/Squash___Powdery_mildew/aad111ee-9baa-4e3d-99f8-bde0657781ed___MD_Powd.M 0066_final_masked__r02_c06.jpg,Squash___Powdery_mildew,train,unhealthy,5/5,5
+train/needs_annotation/Tomato___Bacterial_spot/0ab9c705-f29e-45ac-b786-9549b3c38f16___GCREC_Bact.Sp 3223_final_masked__r06_c04.jpg,Tomato___Bacterial_spot,train,unhealthy,5/5,5
+train/needs_annotation/Tomato___Bacterial_spot/484ce1a5-f249-43ed-afb7-9cd7c2173e29___GCREC_Bact.Sp 3596_final_masked__r03_c04.jpg,Tomato___Bacterial_spot,train,unhealthy,5/5,5
+train/needs_annotation/Tomato___Early_blight/121b3f84-70ed-4d1c-882c-d3204e2af046___RS_Erly.B 8421_final_masked__r04_c01.jpg,Tomato___Early_blight,train,healthy,5/5,5
+train/needs_annotation/Tomato___Early_blight/352ced01-4645-44e5-bc3e-1b7172deb883___RS_Erly.B 7758_final_masked__r05_c05.jpg,Tomato___Early_blight,train,healthy,5/5,5
+train/needs_annotation/Tomato___Early_blight/a8d93308-45b8-46e0-b708-02c325d6b027___RS_Erly.B 9535_final_masked__r05_c04.jpg,Tomato___Early_blight,train,unhealthy,4/5,4
+train/needs_annotation/Tomato___Late_blight/2f08688f-f6ea-4772-bfa3-5a995e38988c___GHLB2 Leaf 8827_final_masked__r03_c04.jpg,Tomato___Late_blight,train,unhealthy,5/5,5
+train/needs_annotation/Tomato___Late_blight/46b29233-cfd6-47d0-99b5-504a4df17bbf___RS_Late.B 5350_final_masked__r05_c02.jpg,Tomato___Late_blight,train,healthy,5/5,5
+train/needs_annotation/Tomato___Late_blight/65773c21-d788-4c22-84b4-91257a603e74___GHLB_PS Leaf 13 Day 7_final_masked__r04_c02.jpg,Tomato___Late_blight,train,unhealthy,5/5,5
+train/needs_annotation/Tomato___Late_blight/aa48f118-9636-4320-99d5-a2a668038683___GHLB2 Leaf 8601_final_masked__r04_c02.jpg,Tomato___Late_blight,train,healthy,5/5,5
+train/needs_annotation/Tomato___Leaf_Mold/0857ce1f-5347-493a-acd9-77b698950b45___Crnl_L.Mold 6748_final_masked__r04_c03.jpg,Tomato___Leaf_Mold,train,unhealthy,4/5,4
+train/needs_annotation/Tomato___Leaf_Mold/b1f8ad0b-b955-4e6e-b789-a856effaa990___Crnl_L.Mold 9109_final_masked__r07_c02.jpg,Tomato___Leaf_Mold,train,unhealthy,4/5,4
+train/needs_annotation/Tomato___Spider_mites Two-spotted_spider_mite/3156e176-2697-4be0-8cc7-37ce05aade4b___Com.G_SpM_FL 1431_final_masked__r01_c03.jpg,Tomato___Spider_mites Two-spotted_spider_mite,train,unhealthy,4/5,4
+train/needs_annotation/Tomato___Spider_mites Two-spotted_spider_mite/5a5bbff6-4eae-4bda-ad08-f781109979cb___Com.G_SpM_FL 1175_final_masked__r04_c05.jpg,Tomato___Spider_mites Two-spotted_spider_mite,train,unhealthy,5/5,5
+train/needs_annotation/Tomato___Spider_mites Two-spotted_spider_mite/e3687cbd-21d5-4560-a527-c0693c48d806___Com.G_SpM_FL 8454_final_masked__r06_c03.jpg,Tomato___Spider_mites Two-spotted_spider_mite,train,unhealthy,5/5,5
+train/needs_annotation/Tomato___Target_Spot/164c168a-8d91-42b4-8f6d-08217b423068___Com.G_TgS_FL 7981_final_masked__r07_c03.jpg,Tomato___Target_Spot,train,healthy,4/5,4
+train/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/0d95d4d3-9623-4c1a-a30d-9128a6d04b81___UF.GRC_YLCV_Lab 09449_final_masked__r05_c03.jpg,Tomato___Tomato_Yellow_Leaf_Curl_Virus,train,unhealthy,4/5,4
+train/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/4a0a51c8-9f1a-4261-ab4d-3ede843eb7c5___YLCV_GCREC 2117_final_masked__r03_c01.jpg,Tomato___Tomato_Yellow_Leaf_Curl_Virus,train,unhealthy,5/5,5
+train/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/56168a73-18cf-47ac-af01-26f425c5a12b___YLCV_NREC 0216_final_masked__r03_c02.jpg,Tomato___Tomato_Yellow_Leaf_Curl_Virus,train,unhealthy,4/5,4
+train/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/57970cb7-5626-4892-b98e-01cb68d81972___YLCV_GCREC 2191_final_masked__r02_c02.jpg,Tomato___Tomato_Yellow_Leaf_Curl_Virus,train,unhealthy,5/5,5
+train/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/7257f560-6655-4aa2-95cb-42d6c98c1229___YLCV_NREC 0236_final_masked__r05_c05.jpg,Tomato___Tomato_Yellow_Leaf_Curl_Virus,train,unhealthy,5/5,5
+train/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/737abe47-68a7-4f2c-ada0-1cf91949c17b___YLCV_NREC 2633_final_masked__r03_c04.jpg,Tomato___Tomato_Yellow_Leaf_Curl_Virus,train,unhealthy,4/5,4
+train/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/e4a94566-9606-4177-86dd-fd9d48c7e475___YLCV_NREC 0229_final_masked__r05_c04.jpg,Tomato___Tomato_Yellow_Leaf_Curl_Virus,train,healthy,4/5,4
+train/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/e7793d98-ca6c-4030-8b4a-4bd506cde757___YLCV_NREC 2268_final_masked__r01_c02.jpg,Tomato___Tomato_Yellow_Leaf_Curl_Virus,train,unhealthy,5/5,5
+train/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/ed26f8e6-5519-4098-ae54-261018d15aab___YLCV_NREC 2064_final_masked__r01_c03.jpg,Tomato___Tomato_Yellow_Leaf_Curl_Virus,train,unhealthy,5/5,5
+train/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/f4e019f2-1c4c-4b12-b88d-e681c3caf2ee___YLCV_GCREC 2235_final_masked__r04_c05.jpg,Tomato___Tomato_Yellow_Leaf_Curl_Virus,train,unhealthy,5/5,5
+train/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/f808bf17-246f-4eba-9d53-019cfc3508b1___UF.GRC_YLCV_Lab 03147_final_masked__r04_c04.jpg,Tomato___Tomato_Yellow_Leaf_Curl_Virus,train,unhealthy,5/5,5
+train/needs_annotation/Tomato___Tomato_Yellow_Leaf_Curl_Virus/fa7fb958-3533-4d80-8578-8b309f3fea97___YLCV_NREC 2594_final_masked__r04_c03.jpg,Tomato___Tomato_Yellow_Leaf_Curl_Virus,train,unhealthy,4/5,4
